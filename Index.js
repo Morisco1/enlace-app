@@ -1,74 +1,91 @@
-console.log("Hola, estoy programando ENLACE!")
 // ============================
-// ENLACE - Lógica de registro
+// ENLACE - Sistema de Match
 // ============================
 
-// Función para determinar el grupo por edad
-function determinarGrupo(edad) {    if (edad >= 40) {        return "Grupo maduro (+40)"    } else if (edad >= 18) {        return "Grupo joven (18-40)"    } else {        return "No permitido, debes tener al menos 18 años"   }}
-// Función para crear un perfil de usuario
-function crearPerfil(nombre, edad, grupoElegido, actividades, buscaPareja) {
-    let grupo = determinarGrupo(edad)
-    let perfil = {
-        nombre: nombre,
-        edad: edad,
-        grupoAutomatico: grupo,
-        grupoDondeQuiereEstar: grupoElegido,
-        actividadesFavoritas: actividades,
-        buscaPareja: buscaPareja,
-        tieneFoto: false,
-        descripcion: "",
-        gpsActivo: false,
-        perfilesDesbloqueados: []
+// Perfiles de usuarios
+let usuario1 = {
+    nombre: "Valentina",
+    edad: 26,
+    busca: "hombre",
+    likes: [],
+    matches: [],
+    chatsDesbloqueados: []
+}
+
+let usuario2 = {
+    nombre: "Carlos",
+    edad: 32,
+    busca: "mujer",
+    likes: [],
+    matches: [],
+    chatsDesbloqueados: []
+}
+
+let usuario3 = {
+    nombre: "Sofia",
+    edad: 28,
+    busca: "hombre",
+    likes: [],
+    matches: [],
+    chatsDesbloqueados: []
+}
+
+// Función para dar like
+function darLike(quienLikea, aQuien) {
+    quienLikea.likes.push(aQuien.nombre)
+    console.log(quienLikea.nombre + " le dio like a " + aQuien.nombre)
+
+    // Verifica si hay match
+    if (aQuien.likes.includes(quienLikea.nombre)) {
+        console.log("🎉 MATCH! " + quienLikea.nombre + " y " + aQuien.nombre + " se gustaron!")
+        quienLikea.matches.push(aQuien.nombre)
+        aQuien.matches.push(quienLikea.nombre)
+    }
+}
+
+// Función para desbloquear chat
+function desbloquearChat(quienPaga, aQuien, saldo) {
+    let costo = 100
+
+    if (!quienPaga.matches.includes(aQuien.nombre)) {
+        console.log("❌ No hay match con " + aQuien.nombre + ", no podés chatear")
+        return saldo
     }
 
-    return perfil
-}
+    if (quienPaga.chatsDesbloqueados.includes(aQuien.nombre)) {
+        console.log("✅ Ya tenés el chat con " + aQuien.nombre + " desbloqueado")
+        return saldo
+    }
 
-// Función para mostrar el perfil armado
-function mostrarPerfil(perfil) {
-    console.log("============================")
-    console.log("   PERFIL CREADO EN ENLACE  ")
-    console.log("============================")
-    console.log("Nombre: " + perfil.nombre)
-    console.log("Edad: " + perfil.edad)
-    console.log("Grupo: " + perfil.grupoAutomatico)
-    console.log("Quiere estar en: " + perfil.grupoDondeQuiereEstar)
-    console.log("Actividades favoritas: " + perfil.actividadesFavoritas.join(", "))
-    console.log("Busca: " + perfil.buscaPareja)
-    console.log("Foto subida: " + (perfil.tieneFoto ? "Sí" : "Pendiente"))
-    console.log("GPS activo: " + (perfil.gpsActivo ? "Sí" : "No"))
-    console.log("============================")
+    if (saldo < costo) {
+        console.log("❌ Saldo insuficiente. Necesitás $100")
+        return saldo
+    }
+
+    saldo = saldo - costo
+    quienPaga.chatsDesbloqueados.push(aQuien.nombre)
+    console.log("💬 Chat con " + aQuien.nombre + " desbloqueado! Saldo restante: $" + saldo)
+    return saldo
 }
 
 // ============================
-// Creamos usuarios de prueba
+// Simulamos la app funcionando
 // ============================
 
-let usuario1 = crearPerfil(
-    "Valentina",
-    26,
-    "Grupo joven",
-    ["Cine", "Merienda", "Pasear en plaza"],
-    "Busca hombre"
-)
+console.log("=== SIMULACIÓN DE ENLACE ===")
+console.log("")
 
-let usuario2 = crearPerfil(
-    "Carlos",
-    52,
-    "Grupo maduro",
-    ["Teatro", "Cenar", "Museo"],
-    "Busca mujer"
-)
+// Los usuarios se dan likes
+darLike(usuario1, usuario2)
+darLike(usuario3, usuario2)
+darLike(usuario2, usuario1)
 
-let usuario3 = crearPerfil(
-    "Camila",
-    15,
-    "Grupo joven",
-    ["Cine", "Bicicleta", "Pasear"],
-    "Busca mujer"
-)
+console.log("")
 
-// Mostramos los perfiles
-mostrarPerfil(usuario1)
-mostrarPerfil(usuario2)
-mostrarPerfil(usuario3)
+// Valentina intenta desbloquear chats
+let saldoValentina = 300
+console.log("Saldo de Valentina: $" + saldoValentina)
+console.log("")
+
+saldoValentina = desbloquearChat(usuario1, usuario2, saldoValentina)
+saldoValentina = desbloquearChat(usuario1, usuario3, saldoValentina)
