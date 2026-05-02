@@ -19,30 +19,38 @@ const busquedas = [
   { id: "ambos", label: "Ambos", emoji: "💫" },
 ];
 
+// Perfiles de prueba
+const perfilesPrueba = [
+  { id: 1, nombre: "Valentina", edad: 26, genero: "mujer", buscaPareja: "hombres", ciudad: "Buenos Aires", km: 1.2, actividades: ["🎬 Cine", "☕ Merienda", "🌿 Pasear"], emoji: "💜" },
+  { id: 2, nombre: "Carlos", edad: 31, genero: "hombre", buscaPareja: "mujeres", ciudad: "Buenos Aires", km: 2.5, actividades: ["🍽️ Cenar", "🎭 Teatro", "🏛️ Museo"], emoji: "💙" },
+  { id: 3, nombre: "Sofia", edad: 28, genero: "mujer", buscaPareja: "mujeres", ciudad: "Buenos Aires", km: 3.1, actividades: ["🚴 Bicicleta", "🌸 Plaza", "☕ Merienda"], emoji: "🧡" },
+  { id: 4, nombre: "Lucas", edad: 35, genero: "hombre", buscaPareja: "hombres", ciudad: "Buenos Aires", km: 0.8, actividades: ["🎬 Cine", "🍽️ Cenar", "🎭 Teatro"], emoji: "💚" },
+  { id: 5, nombre: "Marina", edad: 29, genero: "mujer", buscaPareja: "ambos", ciudad: "Buenos Aires", km: 4.2, actividades: ["🌿 Pasear", "🏛️ Museo", "🎬 Cine"], emoji: "❤️" },
+];
+
 // Lógica de compatibilidad
-function sonCompatibles(usuario1, usuario2) {  const esHombre = (g) => g === "hombre" || g === "hombre_trans";  const esMujer = (g) => g === "mujer" || g === "mujer_trans";  const esNoBinario = (g) => g === "no_binario";
-  // Si alguno busca ambos, solo son compatibles si el otro también busca ambos
-  if (usuario1.buscaPareja === "ambos" && usuario2.buscaPareja === "ambos") return true;
+function sonCompatibles(miGenero, miBusqueda, otroGenero, otroBusqueda) {
+  const esHombre = (g) => g === "hombre" || g === "hombre_trans";
+  const esMujer = (g) => g === "mujer" || g === "mujer_trans";
 
-  // Si busca hombres → el otro debe ser hombre y también buscar hombres
-  if (usuario1.buscaPareja === "hombres") {
-    return esHombre(usuario2.genero) && usuario2.buscaPareja === "hombres";
-  }
-
-  // Si busca mujeres → el otro debe ser mujer y también buscar mujeres
-  if (usuario1.buscaPareja === "mujeres") {
-    return esMujer(usuario2.genero) && usuario2.buscaPareja === "mujeres";
-  }
-
+  if (miBusqueda === "ambos" && otroBusqueda === "ambos") return true;
+  if (miBusqueda === "hombres" && esHombre(otroGenero) && otroBusqueda === "hombres") return true;
+  if (miBusqueda === "mujeres" && esMujer(otroGenero) && otroBusqueda === "mujeres") return true;
+  if (miBusqueda === "hombres" && esMujer(miGenero) && esHombre(otroGenero) && otroBusqueda === "mujeres") return true;
+  if (miBusqueda === "mujeres" && esHombre(miGenero) && esMujer(otroGenero) && otroBusqueda === "hombres") return true;
   return false;
 }
-function App() {  const [pantalla, setPantalla] = useState("grupos");  const [grupo, setGrupo] = useState(null);  const [form, setForm] = useState({
-    nombre: "",
-    edad: "",
-    genero: "",
-    actividadesElegidas: [],
-    buscaPareja: ""  });
+
+function App() {
+  const [pantalla, setPantalla] = useState("grupos");
+  const [grupo, setGrupo] = useState(null);
+  const [form, setForm] = useState({ nombre: "", edad: "", genero: "", actividadesElegidas: [], buscaPareja: "" });
+  const [likes, setLikes] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [matchNuevo, setMatchNuevo] = useState(null);
+
   const color = grupo === "spark" ? "#FF6B9D" : "#C9A96E";
+
   const puedeRegistrarse = () => {
     let edad = parseInt(form.edad);
     if (grupo === "spark") return edad >= 18 && edad <= 40;
@@ -54,14 +62,28 @@ function App() {  const [pantalla, setPantalla] = useState("grupos");  const [gr
     return form.nombre && puedeRegistrarse() && form.genero && form.actividadesElegidas.length > 0 && form.buscaPareja;
   };
 
-  // PANTALLA 1 - Selector de grupos
+  const darLike = (perfil) => {
+    if (likes.includes(perfil.id)) return;
+    setLikes([...likes, perfil.id]);
+
+    // Simulamos que algunos perfiles dan like de vuelta
+    if (perfil.id % 2 === 0) {
+      setMatches([...matches, perfil.id]);
+      setMatchNuevo(perfil);
+    }
+  };
+
+  const perfilesFiltrados = perfilesPrueba.filter(p =>
+    sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja)
+  );
+
+  // PANTALLA 1 - Grupos
   if (pantalla === "grupos") {
     return (
       <div style={{ minHeight: "100vh", background: "#08080F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 24 }}>
         <div style={{ color: "#ffffff88", fontSize: 13, letterSpacing: 3, marginBottom: 12 }}>BIENVENIDO/A</div>
         <h1 style={{ color: "#fff", fontSize: 28, marginBottom: 8, textAlign: "center" }}>¿Cuál es tu mundo?</h1>
         <p style={{ color: "#ffffff55", fontSize: 14, marginBottom: 40, textAlign: "center" }}>Cada espacio es solo para ti</p>
-
         <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%", maxWidth: 340 }}>
           <div onClick={() => { setGrupo("spark"); setPantalla("registro"); }}
             style={{ background: "#1A0A2E", border: "1px solid #FF6B9D44", borderRadius: 20, padding: "28px 24px", cursor: "pointer" }}>
@@ -69,7 +91,6 @@ function App() {  const [pantalla, setPantalla] = useState("grupos");  const [gr
             <div style={{ color: "#FF6B9D", fontSize: 22, fontWeight: 700 }}>Spark</div>
             <div style={{ color: "#ffffff77", fontSize: 13, marginTop: 6 }}>Energía, aventura y nuevas historias</div>
           </div>
-
           <div onClick={() => { setGrupo("esencia"); setPantalla("registro"); }}
             style={{ background: "#1A1000", border: "1px solid #C9A96E44", borderRadius: 20, padding: "28px 24px", cursor: "pointer" }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>✨</div>
@@ -94,58 +115,37 @@ function App() {  const [pantalla, setPantalla] = useState("grupos");  const [gr
     return (
       <div style={{ minHeight: "100vh", background: "#08080F", fontFamily: "sans-serif", padding: "32px 24px", paddingBottom: 60 }}>
         <button onClick={() => setPantalla("grupos")}
-          style={{ background: "none", border: "none", color: color, fontSize: 16, cursor: "pointer", marginBottom: 24 }}>
-          ← Volver
-        </button>
-
-        <div style={{ color: color, fontSize: 13, letterSpacing: 2, marginBottom: 4 }}>
-          {grupo === "spark" ? "⚡ SPARK" : "✨ ESENCIA"}
-        </div>
+          style={{ background: "none", border: "none", color: color, fontSize: 16, cursor: "pointer", marginBottom: 24 }}>← Volver</button>
+        <div style={{ color: color, fontSize: 13, letterSpacing: 2, marginBottom: 4 }}>{grupo === "spark" ? "⚡ SPARK" : "✨ ESENCIA"}</div>
         <h1 style={{ color: "#fff", fontSize: 24, marginBottom: 24 }}>Creá tu perfil</h1>
 
-        {/* Nombre */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ color: "#ffffff77", fontSize: 13, marginBottom: 8 }}>Tu nombre</div>
-          <input
-            value={form.nombre}
-            onChange={e => setForm({ ...form, nombre: e.target.value })}
-            placeholder="¿Cómo te llaman?"
-            style={{ width: "100%", background: "#ffffff0A", border: "1px solid #ffffff22", borderRadius: 12, padding: "12px 16px", color: "#fff", fontSize: 15, outline: "none", boxSizing: "border-box" }}
-          />
+          <input value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} placeholder="¿Cómo te llaman?"
+            style={{ width: "100%", background: "#ffffff0A", border: "1px solid #ffffff22", borderRadius: 12, padding: "12px 16px", color: "#fff", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
         </div>
 
-        {/* Edad */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ color: "#ffffff77", fontSize: 13, marginBottom: 8 }}>Tu edad</div>
-          <input
-            value={form.edad}
-            onChange={e => setForm({ ...form, edad: e.target.value })}
-            placeholder="¿Cuántos años tenés?"
-            type="number"
-            style={{ width: "100%", background: "#ffffff0A", border: "1px solid #ffffff22", borderRadius: 12, padding: "12px 16px", color: "#fff", fontSize: 15, outline: "none", boxSizing: "border-box" }}
-          />
+          <input value={form.edad} onChange={e => setForm({ ...form, edad: e.target.value })} placeholder="¿Cuántos años tenés?" type="number"
+            style={{ width: "100%", background: "#ffffff0A", border: "1px solid #ffffff22", borderRadius: 12, padding: "12px 16px", color: "#fff", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
           {form.edad && !puedeRegistrarse() && (
-            <div style={{ color: "#FF6B6B", fontSize: 12, marginTop: 6 }}>
-              ❌ Esta edad no corresponde al grupo {grupo === "spark" ? "Spark (18-40)" : "Esencia (+40)"}
-            </div>
+            <div style={{ color: "#FF6B6B", fontSize: 12, marginTop: 6 }}>❌ Esta edad no corresponde al grupo {grupo === "spark" ? "Spark (18-40)" : "Esencia (+40)"}</div>
           )}
         </div>
 
-        {/* Género */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ color: "#ffffff77", fontSize: 13, marginBottom: 12 }}>¿Cómo te identificás?</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {generos.map(g => (
               <div key={g.id} onClick={() => setForm({ ...form, genero: g.id })}
                 style={{ background: form.genero === g.id ? color + "33" : "#ffffff0A", border: `1px solid ${form.genero === g.id ? color : "#ffffff22"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", color: form.genero === g.id ? color : "#ffffffcc", fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}>
-                <span>{g.emoji}</span>
-                <span>{g.label}</span>
+                <span>{g.emoji}</span><span>{g.label}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Actividades */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ color: "#ffffff77", fontSize: 13, marginBottom: 4 }}>Actividades favoritas</div>
           <div style={{ color: "#ffffff44", fontSize: 12, marginBottom: 12 }}>Elegí hasta 3</div>
@@ -159,23 +159,19 @@ function App() {  const [pantalla, setPantalla] = useState("grupos");  const [gr
           </div>
         </div>
 
-        {/* Busca */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ color: "#ffffff77", fontSize: 13, marginBottom: 12 }}>¿A quién buscás?</div>
           <div style={{ display: "flex", gap: 8 }}>
             {busquedas.map(op => (
               <div key={op.id} onClick={() => setForm({ ...form, buscaPareja: op.id })}
                 style={{ flex: 1, background: form.buscaPareja === op.id ? color + "33" : "#ffffff0A", border: `1px solid ${form.buscaPareja === op.id ? color : "#ffffff22"}`, borderRadius: 12, padding: "10px 0", cursor: "pointer", color: form.buscaPareja === op.id ? color : "#ffffffcc", fontSize: 12, textAlign: "center" }}>
-                <div>{op.emoji}</div>
-                <div>{op.label}</div>
+                <div>{op.emoji}</div><div>{op.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Botón */}
-        <button
-          onClick={() => { if (formularioCompleto()) setPantalla("perfil"); }}
+        <button onClick={() => { if (formularioCompleto()) setPantalla("perfiles"); }}
           style={{ width: "100%", background: formularioCompleto() ? color : "#ffffff22", color: formularioCompleto() ? "#000" : "#ffffff55", border: "none", borderRadius: 12, padding: "14px", fontSize: 16, fontWeight: 700, cursor: formularioCompleto() ? "pointer" : "not-allowed" }}>
           Crear mi perfil ✨
         </button>
@@ -183,35 +179,78 @@ function App() {  const [pantalla, setPantalla] = useState("grupos");  const [gr
     );
   }
 
-  // PANTALLA 3 - Perfil creado
-  if (pantalla === "perfil") {
+  // PANTALLA 3 - Perfiles cercanos
+  if (pantalla === "perfiles") {
     return (
-      <div style={{ minHeight: "100vh", background: "#08080F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 24 }}>
-        <div style={{ fontSize: 60, marginBottom: 16 }}>🎉</div>
-        <h1 style={{ color: color, fontSize: 26, marginBottom: 8 }}>¡Hola, {form.nombre}!</h1>
-        <p style={{ color: "#ffffff77", marginBottom: 24 }}>Tu perfil fue creado</p>
+      <div style={{ minHeight: "100vh", background: "#08080F", fontFamily: "sans-serif", paddingBottom: 80 }}>
 
-        <div style={{ background: "#ffffff08", border: `1px solid ${color}44`, borderRadius: 16, padding: 20, width: "100%", maxWidth: 340 }}>
-          <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>GRUPO</div>
-          <div style={{ color: color, fontWeight: 700, marginBottom: 16 }}>{grupo === "spark" ? "⚡ Spark" : "✨ Esencia"}</div>
-
-          <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>EDAD</div>
-          <div style={{ color: "#fff", marginBottom: 16 }}>{form.edad} años</div>
-
-          <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>ME IDENTIFICO COMO</div>
-          <div style={{ color: "#fff", marginBottom: 16 }}>{generos.find(g => g.id === form.genero)?.label}</div>
-
-          <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>ACTIVIDADES</div>
-          <div style={{ color: "#fff", marginBottom: 16 }}>{form.actividadesElegidas.join(", ")}</div>
-
-          <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>BUSCA</div>
-          <div style={{ color: "#fff" }}>{busquedas.find(b => b.id === form.buscaPareja)?.label}</div>
+        {/* Header */}
+        <div style={{ padding: "20px 20px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ffffff0A" }}>
+          <div>
+            <div style={{ color: color, fontWeight: 700, fontSize: 20 }}>ENLACE</div>
+            <div style={{ color: "#ffffff44", fontSize: 11 }}>{grupo === "spark" ? "⚡ Spark" : "✨ Esencia"}</div>
+          </div>
+          <div style={{ color: "#fff", fontSize: 14 }}>Hola, {form.nombre} 👋</div>
         </div>
 
-        <button onClick={() => { setPantalla("grupos"); setForm({ nombre: "", edad: "", genero: "", actividadesElegidas: [], buscaPareja: "" }); }}
-          style={{ marginTop: 24, background: "transparent", border: `1px solid ${color}`, color: color, padding: "10px 24px", borderRadius: 12, cursor: "pointer", fontSize: 14 }}>
-          Volver al inicio
-        </button>
+        <div style={{ padding: "16px 16px" }}>
+          <div style={{ color: "#ffffff55", fontSize: 11, letterSpacing: 2, marginBottom: 12 }}>CERCA DE TI 📍</div>
+
+          {perfilesFiltrados.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: "#ffffff33" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+              <div>No hay perfiles compatibles cerca todavía</div>
+            </div>
+          ) : (
+            perfilesFiltrados.map(perfil => (
+              <div key={perfil.id} style={{ background: "#ffffff08", border: "1px solid #ffffff11", borderRadius: 16, padding: 16, marginBottom: 12 }}>
+                <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                  <div style={{ width: 60, height: 60, borderRadius: "50%", background: "#ffffff11", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>
+                    {perfil.emoji}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{perfil.nombre}, {perfil.edad}</div>
+                    <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 8 }}>📍 {perfil.km} km · {perfil.ciudad}</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {perfil.actividades.map(a => (
+                        <span key={a} style={{ background: color + "22", color: color, borderRadius: 20, padding: "3px 10px", fontSize: 11 }}>{a}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 12, borderTop: "1px solid #ffffff0A", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  {matches.includes(perfil.id) ? (
+                    <span style={{ color: "#4CAF50", fontSize: 13 }}>🎉 ¡Match! Podés chatear</span>
+                  ) : likes.includes(perfil.id) ? (
+                    <span style={{ color: "#ffffff44", fontSize: 13 }}>❤️ Like enviado</span>
+                  ) : (
+                    <span style={{ color: "#ffffff55", fontSize: 13 }}>🔒 $100 para chatear</span>
+                  )}
+                  <button onClick={() => darLike(perfil)}
+                    style={{ background: likes.includes(perfil.id) ? "#ffffff11" : color, color: likes.includes(perfil.id) ? "#ffffff55" : "#000", border: "none", borderRadius: 20, padding: "8px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                    {likes.includes(perfil.id) ? "❤️ Likeado" : "❤️ Like"}
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Match popup */}
+        {matchNuevo && (
+          <div style={{ position: "fixed", inset: 0, background: "#000000CC", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 50 }}>
+            <div style={{ background: "#0F0F1E", border: `1px solid ${color}`, borderRadius: 24, padding: 32, textAlign: "center", maxWidth: 300, width: "100%" }}>
+              <div style={{ fontSize: 60, marginBottom: 12 }}>🎉</div>
+              <h2 style={{ color: color, fontSize: 24, marginBottom: 8 }}>¡Match!</h2>
+              <p style={{ color: "#ffffff77", marginBottom: 24 }}>Vos y {matchNuevo.nombre} se gustaron</p>
+              <button onClick={() => setMatchNuevo(null)}
+                style={{ width: "100%", background: color, color: "#000", border: "none", borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+                ¡Genial! 🚀
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
