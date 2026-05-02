@@ -5,15 +5,54 @@ const actividades = [
   "🎭 Teatro", "🚴 Bicicleta", "🌸 Plaza", "🏛️ Museo"
 ];
 
-function App() {
-  const [pantalla, setPantalla] = useState("grupos");
-  const [grupo, setGrupo] = useState(null);
-  const [form, setForm] = useState({
+const generos = [
+  { id: "hombre", label: "Hombre", emoji: "👨" },
+  { id: "mujer", label: "Mujer", emoji: "👩" },
+  { id: "hombre_trans", label: "Hombre trans", emoji: "👨" },
+  { id: "mujer_trans", label: "Mujer trans", emoji: "👩" },
+  { id: "no_binario", label: "No binario", emoji: "⭐" },
+];
+
+const busquedas = [
+  { id: "hombres", label: "Hombres", emoji: "👨" },
+  { id: "mujeres", label: "Mujeres", emoji: "👩" },
+  { id: "ambos", label: "Ambos", emoji: "💫" },
+];
+
+// Lógica de compatibilidad
+function sonCompatibles(usuario1, usuario2) {  const esHombre = (g) => g === "hombre" || g === "hombre_trans";  const esMujer = (g) => g === "mujer" || g === "mujer_trans";  const esNoBinario = (g) => g === "no_binario";
+  // Si alguno busca ambos, solo son compatibles si el otro también busca ambos
+  if (usuario1.buscaPareja === "ambos" && usuario2.buscaPareja === "ambos") return true;
+
+  // Si busca hombres → el otro debe ser hombre y también buscar hombres
+  if (usuario1.buscaPareja === "hombres") {
+    return esHombre(usuario2.genero) && usuario2.buscaPareja === "hombres";
+  }
+
+  // Si busca mujeres → el otro debe ser mujer y también buscar mujeres
+  if (usuario1.buscaPareja === "mujeres") {
+    return esMujer(usuario2.genero) && usuario2.buscaPareja === "mujeres";
+  }
+
+  return false;
+}
+function App() {  const [pantalla, setPantalla] = useState("grupos");  const [grupo, setGrupo] = useState(null);  const [form, setForm] = useState({
     nombre: "",
     edad: "",
+    genero: "",
     actividadesElegidas: [],
-    buscaPareja: ""
-  });
+    buscaPareja: ""  });
+  const color = grupo === "spark" ? "#FF6B9D" : "#C9A96E";
+  const puedeRegistrarse = () => {
+    let edad = parseInt(form.edad);
+    if (grupo === "spark") return edad >= 18 && edad <= 40;
+    if (grupo === "esencia") return edad >= 40;
+    return false;
+  };
+
+  const formularioCompleto = () => {
+    return form.nombre && puedeRegistrarse() && form.genero && form.actividadesElegidas.length > 0 && form.buscaPareja;
+  };
 
   // PANTALLA 1 - Selector de grupos
   if (pantalla === "grupos") {
@@ -42,8 +81,6 @@ function App() {
     );
   }
 
-  const color = grupo === "spark" ? "#FF6B9D" : "#C9A96E";
-
   // PANTALLA 2 - Registro
   if (pantalla === "registro") {
     const toggleActividad = (act) => {
@@ -54,15 +91,8 @@ function App() {
       }
     };
 
-    const puedeRegistrarse = () => {
-      let edad = parseInt(form.edad);
-      if (grupo === "spark") return edad >= 18 && edad <= 40;
-      if (grupo === "esencia") return edad >= 40;
-      return false;
-    };
-
     return (
-      <div style={{ minHeight: "100vh", background: "#08080F", fontFamily: "sans-serif", padding: "32px 24px" }}>
+      <div style={{ minHeight: "100vh", background: "#08080F", fontFamily: "sans-serif", padding: "32px 24px", paddingBottom: 60 }}>
         <button onClick={() => setPantalla("grupos")}
           style={{ background: "none", border: "none", color: color, fontSize: 16, cursor: "pointer", marginBottom: 24 }}>
           ← Volver
@@ -101,6 +131,20 @@ function App() {
           )}
         </div>
 
+        {/* Género */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ color: "#ffffff77", fontSize: 13, marginBottom: 12 }}>¿Cómo te identificás?</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {generos.map(g => (
+              <div key={g.id} onClick={() => setForm({ ...form, genero: g.id })}
+                style={{ background: form.genero === g.id ? color + "33" : "#ffffff0A", border: `1px solid ${form.genero === g.id ? color : "#ffffff22"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", color: form.genero === g.id ? color : "#ffffffcc", fontSize: 14, display: "flex", alignItems: "center", gap: 10 }}>
+                <span>{g.emoji}</span>
+                <span>{g.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Actividades */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ color: "#ffffff77", fontSize: 13, marginBottom: 4 }}>Actividades favoritas</div>
@@ -119,10 +163,11 @@ function App() {
         <div style={{ marginBottom: 32 }}>
           <div style={{ color: "#ffffff77", fontSize: 13, marginBottom: 12 }}>¿A quién buscás?</div>
           <div style={{ display: "flex", gap: 8 }}>
-            {["Hombre", "Mujer", "Ambos"].map(op => (
-              <div key={op} onClick={() => setForm({ ...form, buscaPareja: op })}
-                style={{ flex: 1, background: form.buscaPareja === op ? color + "33" : "#ffffff0A", border: `1px solid ${form.buscaPareja === op ? color : "#ffffff22"}`, borderRadius: 12, padding: "10px 0", cursor: "pointer", color: form.buscaPareja === op ? color : "#ffffffcc", fontSize: 13, textAlign: "center" }}>
-                {op}
+            {busquedas.map(op => (
+              <div key={op.id} onClick={() => setForm({ ...form, buscaPareja: op.id })}
+                style={{ flex: 1, background: form.buscaPareja === op.id ? color + "33" : "#ffffff0A", border: `1px solid ${form.buscaPareja === op.id ? color : "#ffffff22"}`, borderRadius: 12, padding: "10px 0", cursor: "pointer", color: form.buscaPareja === op.id ? color : "#ffffffcc", fontSize: 12, textAlign: "center" }}>
+                <div>{op.emoji}</div>
+                <div>{op.label}</div>
               </div>
             ))}
           </div>
@@ -130,12 +175,8 @@ function App() {
 
         {/* Botón */}
         <button
-          onClick={() => {
-            if (form.nombre && puedeRegistrarse() && form.actividadesElegidas.length > 0 && form.buscaPareja) {
-              setPantalla("perfil");
-            }
-          }}
-          style={{ width: "100%", background: color, color: "#000", border: "none", borderRadius: 12, padding: "14px", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>
+          onClick={() => { if (formularioCompleto()) setPantalla("perfil"); }}
+          style={{ width: "100%", background: formularioCompleto() ? color : "#ffffff22", color: formularioCompleto() ? "#000" : "#ffffff55", border: "none", borderRadius: 12, padding: "14px", fontSize: 16, fontWeight: 700, cursor: formularioCompleto() ? "pointer" : "not-allowed" }}>
           Crear mi perfil ✨
         </button>
       </div>
@@ -157,14 +198,17 @@ function App() {
           <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>EDAD</div>
           <div style={{ color: "#fff", marginBottom: 16 }}>{form.edad} años</div>
 
+          <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>ME IDENTIFICO COMO</div>
+          <div style={{ color: "#fff", marginBottom: 16 }}>{generos.find(g => g.id === form.genero)?.label}</div>
+
           <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>ACTIVIDADES</div>
           <div style={{ color: "#fff", marginBottom: 16 }}>{form.actividadesElegidas.join(", ")}</div>
 
           <div style={{ color: "#ffffff55", fontSize: 12, marginBottom: 4 }}>BUSCA</div>
-          <div style={{ color: "#fff" }}>{form.buscaPareja}</div>
+          <div style={{ color: "#fff" }}>{busquedas.find(b => b.id === form.buscaPareja)?.label}</div>
         </div>
 
-        <button onClick={() => { setPantalla("grupos"); setForm({ nombre: "", edad: "", actividadesElegidas: [], buscaPareja: "" }); }}
+        <button onClick={() => { setPantalla("grupos"); setForm({ nombre: "", edad: "", genero: "", actividadesElegidas: [], buscaPareja: "" }); }}
           style={{ marginTop: 24, background: "transparent", border: `1px solid ${color}`, color: color, padding: "10px 24px", borderRadius: 12, cursor: "pointer", fontSize: 14 }}>
           Volver al inicio
         </button>
