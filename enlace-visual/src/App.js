@@ -2,6 +2,7 @@ import { useState } from "react";
 import Perfil from "./Perfil";
 import Chat from "./Chat";
 import Salidas from "./Salidas";
+import Historias from "./Historias";
 
 const actividades = [
   "🎬 Cine", "☕ Merienda", "🍽️ Cenar", "🌿 Pasear",
@@ -86,6 +87,10 @@ function App() {
 
   if (pantalla === "salidas") {
     return <Salidas color={color} nombre={form.nombre} onVolver={() => setPantalla("perfiles")} />;
+  }
+
+  if (pantalla === "historias") {
+    return <Historias color={color} nombre={form.nombre} onVolver={() => setPantalla("perfiles")} />;
   }
 
   if (pantalla === "grupos") {
@@ -191,18 +196,22 @@ function App() {
   if (pantalla === "perfiles") {
     return (
       <div style={{ minHeight: "100vh", background: "#08080F", fontFamily: "sans-serif", paddingBottom: 80 }}>
-        <div style={{ padding: "20px 20px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ffffff0A" }}>
+        <div style={{ padding: "16px 20px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ffffff0A" }}>
           <div>
             <div style={{ color: color, fontWeight: 700, fontSize: 20 }}>ENLACE</div>
             <div style={{ color: "#ffffff44", fontSize: 11 }}>{grupo === "spark" ? "⚡ Spark" : "✨ Esencia"}</div>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <div onClick={() => setPantalla("historias")}
+              style={{ color: "#fff", fontSize: 12, cursor: "pointer", background: "#ffffff11", padding: "6px 10px", borderRadius: 20, border: "1px solid #ffffff22" }}>
+              📖 Historias
+            </div>
             <div onClick={() => setPantalla("salidas")}
-              style={{ color: "#fff", fontSize: 13, cursor: "pointer", background: "#ffffff11", padding: "6px 12px", borderRadius: 20, border: "1px solid #ffffff22" }}>
+              style={{ color: "#fff", fontSize: 12, cursor: "pointer", background: "#ffffff11", padding: "6px 10px", borderRadius: 20, border: "1px solid #ffffff22" }}>
               🎭 Salidas
             </div>
             <div onClick={() => setPantalla("miperfil")}
-              style={{ color: "#fff", fontSize: 13, cursor: "pointer", background: color + "22", padding: "6px 12px", borderRadius: 20, border: `1px solid ${color}44` }}>
+              style={{ color: "#fff", fontSize: 12, cursor: "pointer", background: color + "22", padding: "6px 10px", borderRadius: 20, border: `1px solid ${color}44` }}>
               👤 Perfil
             </div>
           </div>
