@@ -51,6 +51,8 @@ function App() {
   const [matches, setMatches] = useState([]);
   const [matchNuevo, setMatchNuevo] = useState(null);
   const [chatAbierto, setChatAbierto] = useState(null);
+  const [bloqueados, setBloqueados] = useState([]);
+  const [confirmBloqueo, setConfirmBloqueo] = useState(null);
 
   const color = grupo === "spark" ? "#FF6B9D" : "#C9A96E";
 
@@ -74,12 +76,52 @@ function App() {
     }
   };
 
+  const bloquearUsuario = (perfil) => {
+    setBloqueados([...bloqueados, perfil.id]);
+    setMatches(matches.filter(m => m !== perfil.id));
+    setLikes(likes.filter(l => l !== perfil.id));
+    setChatAbierto(null);
+    setConfirmBloqueo(null);
+  };
+
   const perfilesFiltrados = perfilesPrueba.filter(p =>
-    sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja)
+    sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja) &&
+    !bloqueados.includes(p.id)
   );
 
   if (chatAbierto) {
-    return <Chat color={color} nombre={form.nombre} contacto={chatAbierto} onVolver={() => setChatAbierto(null)} />;
+    const perfilActual = perfilesPrueba.find(p => p.nombre === chatAbierto);
+    return (
+      <div>
+        <Chat color={color} nombre={form.nombre} contacto={chatAbierto} onVolver={() => setChatAbierto(null)} />
+        {/* Boton bloquear en chat */}
+        <div style={{ position: "fixed", top: 16, right: 16, zIndex: 100 }}>
+          <button onClick={() => setConfirmBloqueo(perfilActual)}
+            style={{ background: "#FF6B6B22", border: "1px solid #FF6B6B44", borderRadius: 20, padding: "6px 12px", color: "#FF6B6B", fontSize: 12, cursor: "pointer" }}>
+            🚫 Bloquear
+          </button>
+        </div>
+
+        {/* Popup confirmacion bloqueo */}
+        {confirmBloqueo && (
+          <div style={{ position: "fixed", inset: 0, background: "#000000CC", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 200 }}>
+            <div style={{ background: "#0F0F1E", border: "1px solid #FF6B6B44", borderRadius: 24, padding: 28, textAlign: "center", maxWidth: 300, width: "100%" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🚫</div>
+              <h2 style={{ color: "#fff", fontSize: 20, marginBottom: 8 }}>¿Bloquear a {confirmBloqueo.nombre}?</h2>
+              <p style={{ color: "#ffffff55", fontSize: 13, marginBottom: 24 }}>No se podrán ver ni contactar. Esta acción no se puede deshacer.</p>
+              <button onClick={() => bloquearUsuario(confirmBloqueo)}
+                style={{ width: "100%", background: "#FF6B6B", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
+                Sí, bloquear
+              </button>
+              <button onClick={() => setConfirmBloqueo(null)}
+                style={{ width: "100%", background: "transparent", color: "#ffffff55", border: "none", borderRadius: 12, padding: 10, fontSize: 14, cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   if (pantalla === "miperfil") {
@@ -250,23 +292,48 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <div style={{ marginTop: 12, borderTop: "1px solid #ffffff0A", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ marginTop: 12, borderTop: "1px solid #ffffff0A", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                   {matches.includes(perfil.id) ? (
-                    <span onClick={() => setChatAbierto(perfil.nombre)} style={{ color: "#4CAF50", fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>🎉 ¡Match! Podés chatear →</span>
+                    <span onClick={() => setChatAbierto(perfil.nombre)} style={{ color: "#4CAF50", fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>🎉 ¡Match! Chatear →</span>
                   ) : likes.includes(perfil.id) ? (
                     <span style={{ color: "#ffffff44", fontSize: 13 }}>❤️ Like enviado</span>
                   ) : (
                     <span style={{ color: "#ffffff55", fontSize: 13 }}>🔒 $100 para chatear</span>
                   )}
-                  <button onClick={() => darLike(perfil)}
-                    style={{ background: likes.includes(perfil.id) ? "#ffffff11" : color, color: likes.includes(perfil.id) ? "#ffffff55" : "#000", border: "none", borderRadius: 20, padding: "8px 16px", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
-                    {likes.includes(perfil.id) ? "❤️ Likeado" : "❤️ Like"}
-                  </button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setConfirmBloqueo(perfil)}
+                      style={{ background: "#FF6B6B11", border: "1px solid #FF6B6B33", borderRadius: 20, padding: "6px 10px", cursor: "pointer", color: "#FF6B6B", fontSize: 12 }}>
+                      🚫
+                    </button>
+                    <button onClick={() => darLike(perfil)}
+                      style={{ background: likes.includes(perfil.id) ? "#ffffff11" : color, color: likes.includes(perfil.id) ? "#ffffff55" : "#000", border: "none", borderRadius: 20, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+                      {likes.includes(perfil.id) ? "❤️" : "❤️ Like"}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
           )}
         </div>
+
+        {/* Popup confirmacion bloqueo */}
+        {confirmBloqueo && (
+          <div style={{ position: "fixed", inset: 0, background: "#000000CC", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 50 }}>
+            <div style={{ background: "#0F0F1E", border: "1px solid #FF6B6B44", borderRadius: 24, padding: 28, textAlign: "center", maxWidth: 300, width: "100%" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🚫</div>
+              <h2 style={{ color: "#fff", fontSize: 20, marginBottom: 8 }}>¿Bloquear a {confirmBloqueo.nombre}?</h2>
+              <p style={{ color: "#ffffff55", fontSize: 13, marginBottom: 24 }}>No se podrán ver ni contactar. Esta acción no se puede deshacer.</p>
+              <button onClick={() => bloquearUsuario(confirmBloqueo)}
+                style={{ width: "100%", background: "#FF6B6B", color: "#fff", border: "none", borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
+                Sí, bloquear
+              </button>
+              <button onClick={() => setConfirmBloqueo(null)}
+                style={{ width: "100%", background: "transparent", color: "#ffffff55", border: "none", borderRadius: 12, padding: 10, fontSize: 14, cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         {matchNuevo && (
           <div style={{ position: "fixed", inset: 0, background: "#000000CC", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 50 }}>
