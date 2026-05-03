@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Perfil from "./Perfil";
 import Chat from "./Chat";
+import Salidas from "./Salidas";
 
 const actividades = [
   "🎬 Cine", "☕ Merienda", "🍽️ Cenar", "🌿 Pasear",
@@ -32,7 +33,6 @@ const perfilesPrueba = [
 function sonCompatibles(miGenero, miBusqueda, otroGenero, otroBusqueda) {
   const esHombre = (g) => g === "hombre" || g === "hombre_trans";
   const esMujer = (g) => g === "mujer" || g === "mujer_trans";
-
   if (miBusqueda === "ambos" && otroBusqueda === "ambos") return true;
   if (miBusqueda === "hombres" && esHombre(otroGenero) && otroBusqueda === "hombres") return true;
   if (miBusqueda === "mujeres" && esMujer(otroGenero) && otroBusqueda === "mujeres") return true;
@@ -76,17 +76,18 @@ function App() {
     sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja)
   );
 
-  // PANTALLA - Chat
   if (chatAbierto) {
     return <Chat color={color} nombre={form.nombre} contacto={chatAbierto} onVolver={() => setChatAbierto(null)} />;
   }
 
-  // PANTALLA - Mi perfil
   if (pantalla === "miperfil") {
     return <Perfil color={color} nombre={form.nombre} onVolver={() => setPantalla("perfiles")} />;
   }
 
-  // PANTALLA 1 - Grupos
+  if (pantalla === "salidas") {
+    return <Salidas color={color} nombre={form.nombre} onVolver={() => setPantalla("perfiles")} />;
+  }
+
   if (pantalla === "grupos") {
     return (
       <div style={{ minHeight: "100vh", background: "#08080F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 24 }}>
@@ -111,7 +112,6 @@ function App() {
     );
   }
 
-  // PANTALLA 2 - Registro
   if (pantalla === "registro") {
     const toggleActividad = (act) => {
       if (form.actividadesElegidas.includes(act)) {
@@ -188,7 +188,6 @@ function App() {
     );
   }
 
-  // PANTALLA 3 - Perfiles cercanos
   if (pantalla === "perfiles") {
     return (
       <div style={{ minHeight: "100vh", background: "#08080F", fontFamily: "sans-serif", paddingBottom: 80 }}>
@@ -197,9 +196,15 @@ function App() {
             <div style={{ color: color, fontWeight: 700, fontSize: 20 }}>ENLACE</div>
             <div style={{ color: "#ffffff44", fontSize: 11 }}>{grupo === "spark" ? "⚡ Spark" : "✨ Esencia"}</div>
           </div>
-          <div onClick={() => setPantalla("miperfil")}
-            style={{ color: "#fff", fontSize: 14, cursor: "pointer", background: color + "22", padding: "6px 12px", borderRadius: 20, border: `1px solid ${color}44` }}>
-            👤 Mi perfil
+          <div style={{ display: "flex", gap: 8 }}>
+            <div onClick={() => setPantalla("salidas")}
+              style={{ color: "#fff", fontSize: 13, cursor: "pointer", background: "#ffffff11", padding: "6px 12px", borderRadius: 20, border: "1px solid #ffffff22" }}>
+              🎭 Salidas
+            </div>
+            <div onClick={() => setPantalla("miperfil")}
+              style={{ color: "#fff", fontSize: 13, cursor: "pointer", background: color + "22", padding: "6px 12px", borderRadius: 20, border: `1px solid ${color}44` }}>
+              👤 Perfil
+            </div>
           </div>
         </div>
 
