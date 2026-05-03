@@ -3,6 +3,7 @@ import Perfil from "./Perfil";
 import Chat from "./Chat";
 import Salidas from "./Salidas";
 import Historias from "./Historias";
+import Admin from "./Admin";
 
 const actividades = [
   "🎬 Cine", "☕ Merienda", "🍽️ Cenar", "🌿 Pasear",
@@ -93,6 +94,10 @@ function App() {
     return <Historias color={color} nombre={form.nombre} onVolver={() => setPantalla("perfiles")} />;
   }
 
+  if (pantalla === "admin") {
+    return <Admin onVolver={() => setPantalla("perfiles")} />;
+  }
+
   if (pantalla === "grupos") {
     return (
       <div style={{ minHeight: "100vh", background: "#08080F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 24 }}>
@@ -112,6 +117,10 @@ function App() {
             <div style={{ color: "#C9A96E", fontSize: 22, fontWeight: 700 }}>Esencia</div>
             <div style={{ color: "#ffffff77", fontSize: 13, marginTop: 6 }}>Madurez, profundidad y conexiones reales</div>
           </div>
+        </div>
+        <div onClick={() => setPantalla("admin")}
+          style={{ marginTop: 40, color: "#ffffff22", fontSize: 12, cursor: "pointer" }}>
+          🔐 Acceso admin
         </div>
       </div>
     );
