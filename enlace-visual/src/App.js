@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Perfil from "./Perfil";
+import Chat from "./Chat";
 
 const actividades = [
   "🎬 Cine", "☕ Merienda", "🍽️ Cenar", "🌿 Pasear",
@@ -20,7 +21,6 @@ const busquedas = [
   { id: "ambos", label: "Ambos", emoji: "💫" },
 ];
 
-// Perfiles de prueba
 const perfilesPrueba = [
   { id: 1, nombre: "Valentina", edad: 26, genero: "mujer", buscaPareja: "hombres", ciudad: "Buenos Aires", km: 1.2, actividades: ["🎬 Cine", "☕ Merienda", "🌿 Pasear"], emoji: "💜" },
   { id: 2, nombre: "Carlos", edad: 31, genero: "hombre", buscaPareja: "mujeres", ciudad: "Buenos Aires", km: 2.5, actividades: ["🍽️ Cenar", "🎭 Teatro", "🏛️ Museo"], emoji: "💙" },
@@ -29,7 +29,6 @@ const perfilesPrueba = [
   { id: 5, nombre: "Marina", edad: 29, genero: "mujer", buscaPareja: "ambos", ciudad: "Buenos Aires", km: 4.2, actividades: ["🌿 Pasear", "🏛️ Museo", "🎬 Cine"], emoji: "❤️" },
 ];
 
-// Lógica de compatibilidad
 function sonCompatibles(miGenero, miBusqueda, otroGenero, otroBusqueda) {
   const esHombre = (g) => g === "hombre" || g === "hombre_trans";
   const esMujer = (g) => g === "mujer" || g === "mujer_trans";
@@ -49,6 +48,7 @@ function App() {
   const [likes, setLikes] = useState([]);
   const [matches, setMatches] = useState([]);
   const [matchNuevo, setMatchNuevo] = useState(null);
+  const [chatAbierto, setChatAbierto] = useState(null);
 
   const color = grupo === "spark" ? "#FF6B9D" : "#C9A96E";
 
@@ -66,8 +66,6 @@ function App() {
   const darLike = (perfil) => {
     if (likes.includes(perfil.id)) return;
     setLikes([...likes, perfil.id]);
-
-    // Simulamos que algunos perfiles dan like de vuelta
     if (perfil.id % 2 === 0) {
       setMatches([...matches, perfil.id]);
       setMatchNuevo(perfil);
@@ -77,6 +75,16 @@ function App() {
   const perfilesFiltrados = perfilesPrueba.filter(p =>
     sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja)
   );
+
+  // PANTALLA - Chat
+  if (chatAbierto) {
+    return <Chat color={color} nombre={form.nombre} contacto={chatAbierto} onVolver={() => setChatAbierto(null)} />;
+  }
+
+  // PANTALLA - Mi perfil
+  if (pantalla === "miperfil") {
+    return <Perfil color={color} nombre={form.nombre} onVolver={() => setPantalla("perfiles")} />;
+  }
 
   // PANTALLA 1 - Grupos
   if (pantalla === "grupos") {
@@ -184,22 +192,19 @@ function App() {
   if (pantalla === "perfiles") {
     return (
       <div style={{ minHeight: "100vh", background: "#08080F", fontFamily: "sans-serif", paddingBottom: 80 }}>
-
-        {/* Header */}
         <div style={{ padding: "20px 20px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ffffff0A" }}>
           <div>
             <div style={{ color: color, fontWeight: 700, fontSize: 20 }}>ENLACE</div>
             <div style={{ color: "#ffffff44", fontSize: 11 }}>{grupo === "spark" ? "⚡ Spark" : "✨ Esencia"}</div>
           </div>
-          <div onClick={() => setPantalla("miperfil")} 
-  style={{ color: "#fff", fontSize: 14, cursor: "pointer", background: color + "22", padding: "6px 12px", borderRadius: 20, border: `1px solid ${color}44` }}>
-  👤 Mi perfil
-</div>
+          <div onClick={() => setPantalla("miperfil")}
+            style={{ color: "#fff", fontSize: 14, cursor: "pointer", background: color + "22", padding: "6px 12px", borderRadius: 20, border: `1px solid ${color}44` }}>
+            👤 Mi perfil
+          </div>
         </div>
 
         <div style={{ padding: "16px 16px" }}>
           <div style={{ color: "#ffffff55", fontSize: 11, letterSpacing: 2, marginBottom: 12 }}>CERCA DE TI 📍</div>
-
           {perfilesFiltrados.length === 0 ? (
             <div style={{ textAlign: "center", padding: 40, color: "#ffffff33" }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
@@ -222,10 +227,9 @@ function App() {
                     </div>
                   </div>
                 </div>
-
                 <div style={{ marginTop: 12, borderTop: "1px solid #ffffff0A", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   {matches.includes(perfil.id) ? (
-                    <span style={{ color: "#4CAF50", fontSize: 13 }}>🎉 ¡Match! Podés chatear</span>
+                    <span onClick={() => setChatAbierto(perfil.nombre)} style={{ color: "#4CAF50", fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>🎉 ¡Match! Podés chatear →</span>
                   ) : likes.includes(perfil.id) ? (
                     <span style={{ color: "#ffffff44", fontSize: 13 }}>❤️ Like enviado</span>
                   ) : (
@@ -241,16 +245,19 @@ function App() {
           )}
         </div>
 
-        {/* Match popup */}
         {matchNuevo && (
           <div style={{ position: "fixed", inset: 0, background: "#000000CC", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 50 }}>
             <div style={{ background: "#0F0F1E", border: `1px solid ${color}`, borderRadius: 24, padding: 32, textAlign: "center", maxWidth: 300, width: "100%" }}>
               <div style={{ fontSize: 60, marginBottom: 12 }}>🎉</div>
               <h2 style={{ color: color, fontSize: 24, marginBottom: 8 }}>¡Match!</h2>
               <p style={{ color: "#ffffff77", marginBottom: 24 }}>Vos y {matchNuevo.nombre} se gustaron</p>
-              <button onClick={() => setMatchNuevo(null)}
+              <button onClick={() => { setChatAbierto(matchNuevo.nombre); setMatchNuevo(null); }}
                 style={{ width: "100%", background: color, color: "#000", border: "none", borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-                ¡Genial! 🚀
+                💬 Ir al chat
+              </button>
+              <button onClick={() => setMatchNuevo(null)}
+                style={{ width: "100%", background: "transparent", color: "#ffffff55", border: "none", borderRadius: 12, padding: 10, fontSize: 14, cursor: "pointer", marginTop: 8 }}>
+                Seguir viendo perfiles
               </button>
             </div>
           </div>
@@ -258,9 +265,6 @@ function App() {
       </div>
     );
   }
-// PANTALLA - Mi perfil
-  if (pantalla === "miperfil") {
-    return <Perfil color={color} nombre={form.nombre} onVolver={() => setPantalla("perfiles")} />;
-  }}
+}
 
 export default App;
