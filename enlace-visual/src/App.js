@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Perfil from "./Perfil";
 
 const actividades = [
   "🎬 Cine", "☕ Merienda", "🍽️ Cenar", "🌿 Pasear",
@@ -190,7 +191,10 @@ function App() {
             <div style={{ color: color, fontWeight: 700, fontSize: 20 }}>ENLACE</div>
             <div style={{ color: "#ffffff44", fontSize: 11 }}>{grupo === "spark" ? "⚡ Spark" : "✨ Esencia"}</div>
           </div>
-          <div style={{ color: "#fff", fontSize: 14 }}>Hola, {form.nombre} 👋</div>
+          <div onClick={() => setPantalla("miperfil")} 
+  style={{ color: "#fff", fontSize: 14, cursor: "pointer", background: color + "22", padding: "6px 12px", borderRadius: 20, border: `1px solid ${color}44` }}>
+  👤 Mi perfil
+</div>
         </div>
 
         <div style={{ padding: "16px 16px" }}>
@@ -254,6 +258,9 @@ function App() {
       </div>
     );
   }
-}
+// PANTALLA - Mi perfil
+  if (pantalla === "miperfil") {
+    return <Perfil color={color} nombre={form.nombre} onVolver={() => setPantalla("perfiles")} />;
+  }}
 
 export default App;
