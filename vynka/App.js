@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, BackHa
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import Auth from './Auth';
+import { supabase } from './supabase';
 
 const generos = [
   { id: "hombre", label: "Hombre", emoji: "👨" },
@@ -31,11 +33,11 @@ const perfilesPrueba = [
 ];
 
 const salidasData = [
-  { id: 1, tipo: "🎬 Cine", titulo: "Estreno: Misión Imposible 8", desc: "Acción sin parar desde el primer minuto.", emoji: "🎬", dias: 14, estrellas: 47, color: "#FF6B6B" },
-  { id: 2, tipo: "🍽️ Restaurante", titulo: "Promo cena para dos — La Brasserie", desc: "Cena romántica con entrada y postre.", emoji: "🍽️", dias: 7, estrellas: 83, color: "#FFB86B" },
+  { id: 1, tipo: "🎬 Cine", titulo: "Estreno: Misión Imposible 8", desc: "Acción sin parar.", emoji: "🎬", dias: 14, estrellas: 47, color: "#FF6B6B" },
+  { id: 2, tipo: "🍽️ Restaurante", titulo: "Promo cena para dos", desc: "Cena romántica con entrada y postre.", emoji: "🍽️", dias: 7, estrellas: 83, color: "#FFB86B" },
   { id: 3, tipo: "🎭 Teatro", titulo: "Chicago — El Musical", desc: "El clásico de Broadway en Buenos Aires.", emoji: "🎭", dias: 25, estrellas: 124, color: "#DA8FFF" },
-  { id: 4, tipo: "🏛️ Museo", titulo: "Noche de Museos — MALBA", desc: "Entrada gratuita este sábado de 20 a 02hs.", emoji: "🏛️", dias: 3, estrellas: 56, color: "#6BFFEE" },
-  { id: 5, tipo: "🎪 Festival", titulo: "Festival de Jazz en el Parque", desc: "Tres días de música en vivo. Entrada libre.", emoji: "🎪", dias: 10, estrellas: 91, color: "#A8FF78" },
+  { id: 4, tipo: "🏛️ Museo", titulo: "Noche de Museos — MALBA", desc: "Entrada gratuita este sábado.", emoji: "🏛️", dias: 3, estrellas: 56, color: "#6BFFEE" },
+  { id: 5, tipo: "🎪 Festival", titulo: "Festival de Jazz en el Parque", desc: "Tres días de música en vivo.", emoji: "🎪", dias: 10, estrellas: 91, color: "#A8FF78" },
 ];
 
 function sonCompatibles(miGenero, miBusqueda, otroGenero, otroBusqueda) {
@@ -51,16 +53,14 @@ function sonCompatibles(miGenero, miBusqueda, otroGenero, otroBusqueda) {
 
 const estadoInicial = { likes: [], matches: [], chats: {}, bloqueados: [] };
 
-export default function App() {
+// Componente separado para la app principal
+function MainApp({ sesion, onCerrarSesion }) {
   const [pantalla, setPantalla] = useState('inicio');
   const [tabActivo, setTabActivo] = useState('radar');
   const [grupo, setGrupo] = useState(null);
   const [form, setForm] = useState({ nombre: "", edad: "", genero: "", actividadesElegidas: [], buscaPareja: "" });
-
-  // Estado separado por grupo
   const [estadoSpark, setEstadoSpark] = useState({ ...estadoInicial, chats: {} });
   const [estadoEsencia, setEstadoEsencia] = useState({ ...estadoInicial, chats: {} });
-
   const [chatAbierto, setChatAbierto] = useState(null);
   const [perfilViendo, setPerfilViendo] = useState(null);
   const [textoMensaje, setTextoMensaje] = useState("");
@@ -115,8 +115,7 @@ export default function App() {
   };
 
   const cambiarGrupo = () => {
-    const nuevoGrupo = grupo === 'spark' ? 'esencia' : 'spark';
-    setGrupo(nuevoGrupo);
+    setGrupo(grupo === 'spark' ? 'esencia' : 'spark');
     setChatAbierto(null);
     setPerfilViendo(null);
     setTabActivo('radar');
@@ -127,32 +126,20 @@ export default function App() {
     const nuevosLikes = [...estado.likes, perfil.id];
     let nuevosMatches = [...estado.matches];
     let nuevoMatch = null;
-    if (perfil.id % 2 === 0) {
-      nuevosMatches = [...nuevosMatches, perfil.id];
-      nuevoMatch = perfil;
-    }
+    if (perfil.id % 2 === 0) { nuevosMatches = [...nuevosMatches, perfil.id]; nuevoMatch = perfil; }
     setEstado({ ...estado, likes: nuevosLikes, matches: nuevosMatches });
     if (nuevoMatch) setMatchNuevo(nuevoMatch);
   };
 
   const bloquear = (perfil) => {
     const id = perfil.id || perfil;
-    setEstado({
-      ...estado,
-      bloqueados: [...estado.bloqueados, id],
-      matches: estado.matches.filter(m => m !== id),
-      likes: estado.likes.filter(l => l !== id),
-    });
-    setChatAbierto(null);
-    setPerfilViendo(null);
-    setConfirmBloqueo(null);
+    setEstado({ ...estado, bloqueados: [...estado.bloqueados, id], matches: estado.matches.filter(m => m !== id), likes: estado.likes.filter(l => l !== id) });
+    setChatAbierto(null); setPerfilViendo(null); setConfirmBloqueo(null);
   };
 
   const verPerfil = (perfil) => {
     setPerfilViendo(perfil);
-    if (!quienMeVio.includes(perfil.nombre)) {
-      setQuienMeVio([...quienMeVio, perfil.nombre]);
-    }
+    if (!quienMeVio.includes(perfil.nombre)) setQuienMeVio([...quienMeVio, perfil.nombre]);
   };
 
   const enviarMensaje = () => {
@@ -162,50 +149,35 @@ export default function App() {
     setEstado({ ...estado, chats: nuevosChats });
     setTextoMensaje("");
     setTimeout(() => {
-      const chatActualizado = nuevosChats[chatAbierto] || [];
-      setEstado(prev => ({ ...prev, chats: { ...prev.chats, [chatAbierto]: [...chatActualizado, { id: Date.now() + 1, texto: "¡Qué bueno! 😄", mio: false }] } }));
+      setEstado(prev => ({ ...prev, chats: { ...prev.chats, [chatAbierto]: [...(nuevosChats[chatAbierto] || []), { id: Date.now() + 1, texto: "¡Qué bueno! 😄", mio: false }] } }));
     }, 1500);
   };
 
   const elegirFotoHistoria = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) { alert("Necesitamos permiso para acceder a tus fotos"); return; }
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    const resultado = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.8 });
     if (!resultado.canceled) setFotoHistoria(resultado.assets[0].uri);
   };
 
   const publicarHistoria = () => {
     if (!nuevaHistoria.trim() && !fotoHistoria) return;
     setHistorias([{ id: Date.now(), autor: form.nombre, emoji: '⭐', texto: nuevaHistoria, foto: fotoHistoria, likes: 0, meGusta: false, mia: true, grupo }, ...historias]);
-    setNuevaHistoria("");
-    setFotoHistoria(null);
+    setNuevaHistoria(""); setFotoHistoria(null);
   };
 
   const enviarCita = (salida, contacto) => {
     const chatActual = estado.chats[contacto] || [];
     const msg = { id: Date.now(), texto: `🎯 Te invito a una cita:\n${salida.emoji} ${salida.titulo}\n📍 ¡Qué te parece?`, mio: true, esCita: true };
     setEstado({ ...estado, chats: { ...estado.chats, [contacto]: [...chatActual, msg] } });
-    setMostrarEnviarCita(null);
-    setCitaEnviada(contacto);
+    setMostrarEnviarCita(null); setCitaEnviada(contacto);
     setTimeout(() => setCitaEnviada(null), 2000);
   };
 
   const misMatchesNombres = perfilesPrueba.filter(p => estado.matches.includes(p.id)).map(p => p.nombre);
-
-  const perfilesFiltrados = perfilesPrueba.filter(p =>
-    p.grupo === grupo &&
-    sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja) &&
-    !estado.bloqueados.includes(p.id)
-  );
-
+  const perfilesFiltrados = perfilesPrueba.filter(p => p.grupo === grupo && sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja) && !estado.bloqueados.includes(p.id));
   const historiasGrupo = historias.filter(h => h.grupo === grupo);
 
-  // PANTALLA INICIO
   if (pantalla === 'inicio') {
     return (
       <SafeAreaProvider>
@@ -217,12 +189,14 @@ export default function App() {
           <TouchableOpacity style={[s.boton, { backgroundColor: '#FF6B9D', marginTop: 30 }]} onPress={() => setPantalla('grupos')}>
             <Text style={s.botonTexto}>Comenzar ✨</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={onCerrarSesion} style={{ marginTop: 20 }}>
+            <Text style={{ color: '#ffffff33', fontSize: 12 }}>Cerrar sesión</Text>
+          </TouchableOpacity>
         </SafeAreaView>
       </SafeAreaProvider>
     );
   }
 
-  // PANTALLA GRUPOS
   if (pantalla === 'grupos') {
     return (
       <SafeAreaProvider>
@@ -248,7 +222,6 @@ export default function App() {
     );
   }
 
-  // PANTALLA REGISTRO
   if (pantalla === 'registro') {
     return (
       <SafeAreaProvider>
@@ -260,16 +233,11 @@ export default function App() {
             </TouchableOpacity>
             <Text style={{ color, fontSize: 12, letterSpacing: 2, marginBottom: 4 }}>{grupo === 'spark' ? '⚡ SPARK' : '✨ ESENCIA'}</Text>
             <Text style={s.tituloGrande}>Creá tu perfil</Text>
-
             <Text style={s.label}>Tu nombre</Text>
             <TextInput value={form.nombre} onChangeText={t => setForm({ ...form, nombre: t })} placeholder="¿Cómo te llaman?" placeholderTextColor="#ffffff44" style={s.input} />
-
             <Text style={s.label}>Tu edad</Text>
             <TextInput value={form.edad} onChangeText={t => setForm({ ...form, edad: t })} placeholder="¿Cuántos años tenés?" placeholderTextColor="#ffffff44" keyboardType="numeric" style={s.input} />
-            {form.edad !== "" && !puedeRegistrarse() && (
-              <Text style={{ color: '#FF6B6B', fontSize: 12, marginBottom: 8 }}>❌ Edad no corresponde a este grupo</Text>
-            )}
-
+            {form.edad !== "" && !puedeRegistrarse() && <Text style={{ color: '#FF6B6B', fontSize: 12, marginBottom: 8 }}>❌ Edad no corresponde a este grupo</Text>}
             <Text style={s.label}>¿Cómo te identificás?</Text>
             {generos.map(g => (
               <TouchableOpacity key={g.id} onPress={() => setForm({ ...form, genero: g.id })}
@@ -277,7 +245,6 @@ export default function App() {
                 <Text style={{ color: form.genero === g.id ? color : '#ffffffcc', fontSize: 15 }}>{g.emoji} {g.label}</Text>
               </TouchableOpacity>
             ))}
-
             <Text style={s.label}>Actividades favoritas <Text style={{ color: '#ffffff44' }}>(hasta 3)</Text></Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
               {actividades.map(act => (
@@ -287,7 +254,6 @@ export default function App() {
                 </TouchableOpacity>
               ))}
             </View>
-
             <Text style={s.label}>¿A quién buscás?</Text>
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
               {busquedas.map(op => (
@@ -298,7 +264,6 @@ export default function App() {
                 </TouchableOpacity>
               ))}
             </View>
-
             <TouchableOpacity onPress={() => { if (formularioCompleto()) setPantalla('main'); }}
               style={[s.boton, { backgroundColor: formularioCompleto() ? color : '#ffffff22' }]}>
               <Text style={[s.botonTexto, { color: formularioCompleto() ? '#000' : '#ffffff55' }]}>Crear mi perfil ✨</Text>
@@ -309,7 +274,6 @@ export default function App() {
     );
   }
 
-  // PANTALLA VER PERFIL DE OTRO
   if (perfilViendo) {
     const tieneMatch = estado.matches.includes(perfilViendo.id);
     const dioLike = estado.likes.includes(perfilViendo.id);
@@ -331,14 +295,12 @@ export default function App() {
               <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>{perfilViendo.nombre}, {perfilViendo.edad}</Text>
               <Text style={{ color: '#ffffff55', fontSize: 14, marginTop: 4 }}>📍 {perfilViendo.km} km · {perfilViendo.ciudad}</Text>
             </View>
-
             {perfilViendo.bio && (
               <View style={s.card}>
                 <Text style={{ color: '#ffffff55', fontSize: 12, marginBottom: 4 }}>BIO</Text>
                 <Text style={{ color: '#fff', fontSize: 14 }}>{perfilViendo.bio}</Text>
               </View>
             )}
-
             <View style={s.card}>
               <Text style={{ color: '#ffffff55', fontSize: 12, marginBottom: 8 }}>ACTIVIDADES</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
@@ -349,7 +311,6 @@ export default function App() {
                 ))}
               </View>
             </View>
-
             {tieneMatch ? (
               <TouchableOpacity onPress={() => { setChatAbierto(perfilViendo.nombre); setPerfilViendo(null); }}
                 style={[s.boton, { backgroundColor: '#4CAF50', marginBottom: 8 }]}>
@@ -359,22 +320,17 @@ export default function App() {
               <View style={[s.card, { backgroundColor: color + '11', borderColor: color + '33', alignItems: 'center' }]}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>🔒</Text>
                 <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, marginBottom: 4 }}>Para chatear con {perfilViendo.nombre}</Text>
-                <Text style={{ color: '#ffffff55', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>Primero hacé match dando like y cuando sea mutuo podés chatear gratis</Text>
-                <TouchableOpacity onPress={() => darLike(perfilViendo)}
-                  style={[s.boton, { backgroundColor: dioLike ? '#ffffff22' : color }]}>
-                  <Text style={[s.botonTexto, { color: dioLike ? '#ffffff55' : '#000' }]}>
-                    {dioLike ? '❤️ Like enviado' : '❤️ Dar like'}
-                  </Text>
+                <Text style={{ color: '#ffffff55', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>Primero hacé match dando like</Text>
+                <TouchableOpacity onPress={() => darLike(perfilViendo)} style={[s.boton, { backgroundColor: dioLike ? '#ffffff22' : color }]}>
+                  <Text style={[s.botonTexto, { color: dioLike ? '#ffffff55' : '#000' }]}>{dioLike ? '❤️ Like enviado' : '❤️ Dar like'}</Text>
                 </TouchableOpacity>
               </View>
             )}
-
             <TouchableOpacity onPress={() => setConfirmBloqueo(perfilViendo)}
               style={[s.boton, { backgroundColor: '#FF6B6B11', borderWidth: 1, borderColor: '#FF6B6B44', marginTop: 8 }]}>
               <Text style={{ color: '#FF6B6B' }}>🚫 Bloquear</Text>
             </TouchableOpacity>
           </ScrollView>
-
           {confirmBloqueo && (
             <View style={s.overlay}>
               <View style={s.popup}>
@@ -395,7 +351,6 @@ export default function App() {
     );
   }
 
-  // PANTALLA CHAT
   if (chatAbierto) {
     const perfilChat = perfilesPrueba.find(p => p.nombre === chatAbierto);
     const mensajesChat = estado.chats[chatAbierto] || [{ id: 1, texto: "¡Hola! Me alegra que hagamos match 😊", mio: false }];
@@ -420,7 +375,6 @@ export default function App() {
               <Text style={{ color: '#FF6B6B', fontSize: 13 }}>🚫</Text>
             </TouchableOpacity>
           </View>
-
           <ScrollView style={{ flex: 1, padding: 16 }}>
             {mensajesChat.map(msg => (
               <View key={msg.id} style={{ alignItems: msg.mio ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
@@ -430,7 +384,6 @@ export default function App() {
               </View>
             ))}
           </ScrollView>
-
           <View style={{ flexDirection: 'row', padding: 12, borderTopWidth: 1, borderTopColor: '#ffffff0A', gap: 8 }}>
             <TextInput value={textoMensaje} onChangeText={setTextoMensaje} placeholder="Escribí un mensaje..." placeholderTextColor="#ffffff44"
               style={[s.input, { flex: 1, marginBottom: 0 }]} />
@@ -439,7 +392,6 @@ export default function App() {
               <Text style={{ color: '#000', fontWeight: 'bold' }}>➤</Text>
             </TouchableOpacity>
           </View>
-
           {confirmBloqueo && (
             <View style={s.overlay}>
               <View style={s.popup}>
@@ -460,9 +412,7 @@ export default function App() {
     );
   }
 
-  // PANTALLA MAIN
   if (pantalla === 'main') {
-
     const renderRadar = () => (
       <View style={{ flex: 1 }}>
         <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -534,19 +484,15 @@ export default function App() {
               style={[s.boton, { flex: 1, backgroundColor: '#ffffff11', borderWidth: 1, borderColor: '#ffffff22' }]}>
               <Text style={{ color: '#ffffff77', fontSize: 13 }}>📸 Foto</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={publicarHistoria}
-              style={[s.boton, { flex: 2, backgroundColor: color }]}>
+            <TouchableOpacity onPress={publicarHistoria} style={[s.boton, { flex: 2, backgroundColor: color }]}>
               <Text style={s.botonTexto}>Publicar ✨</Text>
             </TouchableOpacity>
           </View>
         </View>
-
         {historiasGrupo.map(h => (
           <View key={h.id} style={s.card}>
-            <TouchableOpacity onPress={() => {
-              const perfilAutor = perfilesPrueba.find(p => p.nombre === h.autor);
-              if (perfilAutor && !h.mia) verPerfil(perfilAutor);
-            }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <TouchableOpacity onPress={() => { const p = perfilesPrueba.find(x => x.nombre === h.autor); if (p && !h.mia) verPerfil(p); }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <View style={s.avatar}><Text style={{ fontSize: 18 }}>{h.emoji}</Text></View>
               <View>
                 <Text style={{ color: h.mia ? color : '#fff', fontWeight: 'bold' }}>{h.autor}</Text>
@@ -557,12 +503,12 @@ export default function App() {
             {h.foto && <Image source={{ uri: h.foto }} style={{ width: '100%', height: 200, borderRadius: 12, marginBottom: 10 }} />}
             {h.texto ? <Text style={{ color: '#ffffffcc', fontSize: 14, marginBottom: 12 }}>{h.texto}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity onPress={() => setHistorias(historias.map(hist => hist.id === h.id ? { ...hist, meGusta: !hist.meGusta, likes: hist.meGusta ? hist.likes - 1 : hist.likes + 1 } : hist))}
+              <TouchableOpacity onPress={() => setHistorias(historias.map(x => x.id === h.id ? { ...x, meGusta: !x.meGusta, likes: x.meGusta ? x.likes - 1 : x.likes + 1 } : x))}
                 style={[s.chip, { borderColor: h.meGusta ? color : '#ffffff22', backgroundColor: h.meGusta ? color + '22' : '#ffffff0A' }]}>
                 <Text style={{ color: h.meGusta ? color : '#ffffff77', fontSize: 13 }}>❤️ {h.likes}</Text>
               </TouchableOpacity>
               {h.mia && (
-                <TouchableOpacity onPress={() => setHistorias(historias.filter(hist => hist.id !== h.id))}
+                <TouchableOpacity onPress={() => setHistorias(historias.filter(x => x.id !== h.id))}
                   style={[s.chip, { borderColor: '#FF6B6B33', backgroundColor: '#FF6B6B11' }]}>
                   <Text style={{ color: '#FF6B6B', fontSize: 13 }}>🗑️ Borrar</Text>
                 </TouchableOpacity>
@@ -577,7 +523,6 @@ export default function App() {
       const salidasOrdenadas = tabSalidas === 'ranking'
         ? [...salidasData].sort((a, b) => (b.estrellas + (estrelladas.includes(b.id) ? 1 : 0)) - (a.estrellas + (estrelladas.includes(a.id) ? 1 : 0)))
         : salidasData;
-
       return (
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', padding: 12, gap: 8 }}>
@@ -590,13 +535,7 @@ export default function App() {
               <Text style={{ color: tabSalidas === 'ranking' ? '#FFD700' : '#ffffff77', fontSize: 13 }}>🏆 Ranking</Text>
             </TouchableOpacity>
           </View>
-
           <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0 }}>
-            {tabSalidas === 'ranking' && (
-              <View style={{ backgroundColor: '#FFD70011', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#FFD70033' }}>
-                <Text style={{ color: '#FFD700', fontWeight: 'bold', fontSize: 14, textAlign: 'center' }}>🏆 Lugares mejor puntuados</Text>
-              </View>
-            )}
             {salidasOrdenadas.map((pub, index) => (
               <View key={pub.id} style={[s.card, { borderColor: pub.color + '33' }]}>
                 {tabSalidas === 'ranking' && (
@@ -618,25 +557,14 @@ export default function App() {
                     style={[s.chip, { flex: 1, borderColor: estrelladas.includes(pub.id) ? '#FFD700' : '#ffffff22', backgroundColor: estrelladas.includes(pub.id) ? '#FFD70022' : '#ffffff0A', justifyContent: 'center' }]}>
                     <Text style={{ color: estrelladas.includes(pub.id) ? '#FFD700' : '#ffffff77', fontSize: 13 }}>⭐ {pub.estrellas + (estrelladas.includes(pub.id) ? 1 : 0)}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (misMatchesNombres.length === 0) {
-                        alert("Necesitás tener al menos un match para enviar una cita");
-                        return;
-                      }
-                      setMostrarEnviarCita(pub);
-                    }}
+                  <TouchableOpacity onPress={() => { if (misMatchesNombres.length === 0) { alert("Necesitás tener al menos un match"); return; } setMostrarEnviarCita(pub); }}
                     style={[s.chip, { flex: 2, borderColor: citaEnviada ? '#4CAF5044' : color + '44', backgroundColor: citaEnviada ? '#4CAF5022' : color + '22', justifyContent: 'center' }]}>
-                    <Text style={{ color: citaEnviada ? '#4CAF50' : color, fontSize: 13, fontWeight: 'bold' }}>
-                      {citaEnviada ? '✅ ¡Enviada!' : '🎯 Enviar como cita'}
-                    </Text>
+                    <Text style={{ color: citaEnviada ? '#4CAF50' : color, fontSize: 13, fontWeight: 'bold' }}>{citaEnviada ? '✅ ¡Enviada!' : '🎯 Enviar como cita'}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
           </ScrollView>
-
-          {/* Modal enviar cita */}
           <Modal visible={!!mostrarEnviarCita} transparent animationType="slide">
             <View style={s.overlay}>
               <View style={[s.popup, { maxHeight: '70%' }]}>
@@ -679,25 +607,21 @@ export default function App() {
           </View>
           <Text style={{ color: '#fff', fontSize: 22, fontWeight: 'bold' }}>{form.nombre}</Text>
           <Text style={{ color: '#ffffff55', fontSize: 14 }}>{form.edad} años</Text>
-
-          {/* Indicador de grupo con boton para cambiar */}
+          <Text style={{ color: '#ffffff44', fontSize: 12, marginTop: 4 }}>{sesion?.user?.email}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 }}>
             <View style={{ backgroundColor: color + '22', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: color + '44' }}>
               <Text style={{ color, fontSize: 14, fontWeight: 'bold' }}>{grupo === 'spark' ? '⚡ Spark' : '✨ Esencia'}</Text>
             </View>
-            <TouchableOpacity onPress={cambiarGrupo}
-              style={{ backgroundColor: '#ffffff11', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#ffffff22' }}>
+            <TouchableOpacity onPress={cambiarGrupo} style={{ backgroundColor: '#ffffff11', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#ffffff22' }}>
               <Text style={{ color: '#ffffff77', fontSize: 12 }}>🔄 Cambiar grupo</Text>
             </TouchableOpacity>
           </View>
-
           {quienMeVio.length > 0 && (
             <View style={{ backgroundColor: color + '22', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginTop: 12, borderWidth: 1, borderColor: color + '44' }}>
               <Text style={{ color, fontSize: 13 }}>👁️ {quienMeVio.length} {quienMeVio.length === 1 ? 'persona vio' : 'personas vieron'} tu perfil</Text>
             </View>
           )}
         </View>
-
         <View style={s.card}>
           <Text style={{ color: '#ffffff55', fontSize: 12, marginBottom: 4 }}>ACTIVIDADES</Text>
           <Text style={{ color: '#fff', fontSize: 14 }}>{form.actividadesElegidas.join(', ')}</Text>
@@ -710,9 +634,7 @@ export default function App() {
           <Text style={{ color: '#ffffff55', fontSize: 12, marginBottom: 4 }}>MATCHES EN ESTE GRUPO</Text>
           <Text style={{ color: '#fff', fontSize: 14 }}>{estado.matches.length} matches ❤️</Text>
         </View>
-
-        <TouchableOpacity onPress={() => { setPantalla('grupos'); setForm({ nombre: "", edad: "", genero: "", actividadesElegidas: [], buscaPareja: "" }); }}
-          style={[s.boton, { backgroundColor: '#FF6B6B22', borderWidth: 1, borderColor: '#FF6B6B44', marginTop: 16 }]}>
+        <TouchableOpacity onPress={onCerrarSesion} style={[s.boton, { backgroundColor: '#FF6B6B22', borderWidth: 1, borderColor: '#FF6B6B44', marginTop: 16 }]}>
           <Text style={{ color: '#FF6B6B', fontWeight: 'bold' }}>Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -722,8 +644,6 @@ export default function App() {
       <SafeAreaProvider>
         <SafeAreaView style={{ flex: 1, backgroundColor: '#08080F' }}>
           <StatusBar style="light" />
-
-          {/* Header con indicador de grupo */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#ffffff0A' }}>
             <Text style={{ color, fontWeight: 'bold', fontSize: 22, letterSpacing: 2 }}>VYNKA</Text>
             <TouchableOpacity onPress={cambiarGrupo}
@@ -732,16 +652,12 @@ export default function App() {
               <Text style={{ color: '#ffffff55', fontSize: 11 }}>🔄</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Contenido */}
           <View style={{ flex: 1 }}>
             {tabActivo === 'radar' && renderRadar()}
             {tabActivo === 'historias' && renderHistorias()}
             {tabActivo === 'salidas' && renderSalidas()}
             {tabActivo === 'perfil' && renderMiPerfil()}
           </View>
-
-          {/* Barra navegacion abajo */}
           <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#ffffff0A', backgroundColor: '#08080F' }}>
             {[
               { id: 'radar', emoji: '📡', label: 'Radar' },
@@ -756,7 +672,6 @@ export default function App() {
               </TouchableOpacity>
             ))}
           </View>
-
           {matchNuevo && (
             <View style={s.overlay}>
               <View style={[s.popup, { borderColor: color }]}>
@@ -777,6 +692,28 @@ export default function App() {
       </SafeAreaProvider>
     );
   }
+}
+
+// Componente principal que maneja la sesion
+export default function App() {
+  const [sesion, setSesion] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSesion(session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setSesion(session));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const cerrarSesion = async () => {
+    await supabase.auth.signOut();
+    setSesion(null);
+  };
+
+  if (!sesion) {
+    return <Auth onLogin={() => supabase.auth.getSession().then(({ data: { session } }) => setSesion(session))} />;
+  }
+
+  return <MainApp sesion={sesion} onCerrarSesion={cerrarSesion} />;
 }
 
 const s = StyleSheet.create({
