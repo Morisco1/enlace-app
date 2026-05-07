@@ -3,12 +3,10 @@ import { StyleSheet, Text, View, TouchableOpacity, ScrollView, TextInput, BackHa
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import { Video } from 'expo-av';
 import Auth from './Auth';
 import { supabase } from './supabase';
 
-// ============================
-// PALETAS DE COLORES
-// ============================
 const SPARK = {
   fondo: '#0D0D12',
   accion: '#8A2BE2',
@@ -50,7 +48,6 @@ const busquedas = [
 ];
 
 const actividades = ["🎬 Cine", "☕ Merienda", "🍽️ Cenar", "🌿 Pasear", "🎭 Teatro", "🚴 Bicicleta", "🌸 Plaza", "🏛️ Museo"];
-
 const etiquetasHistoria = ["💍 Algo Serio", "⚡ Algo Express", "🎭 Cita de Salida"];
 
 const perfilesPrueba = [
@@ -72,17 +69,23 @@ const salidasData = [
 ];
 
 const historiasIniciales = [
-  { id: 1, autorId: 1, autor: "Valentina", emoji: "💜", texto: "Hoy fui al parque 🌸", grupo: "spark", etiqueta: "💍 Algo Serio" },
-  { id: 2, autorId: 3, autor: "Sofia", emoji: "🧡", texto: "¡Fin de semana genial! 🎉", grupo: "spark", etiqueta: "⚡ Algo Express" },
-  { id: 3, autorId: 5, autor: "Marina", emoji: "❤️", texto: "Nueva expo en el MALBA 🎨", grupo: "spark", etiqueta: "🎭 Cita de Salida" },
+  { id: 1, autorId: 1, autor: "Valentina", emoji: "💜", texto: "Hoy fui al parque 🌸", grupo: "spark", etiqueta: "💍 Algo Serio", tipo: "texto" },
+  { id: 2, autorId: 3, autor: "Sofia", emoji: "🧡", texto: "¡Fin de semana genial! 🎉", grupo: "spark", etiqueta: "⚡ Algo Express", tipo: "texto" },
+  { id: 3, autorId: 5, autor: "Marina", emoji: "❤️", texto: "Nueva expo en el MALBA 🎨", grupo: "spark", etiqueta: "🎭 Cita de Salida", tipo: "texto" },
+];
+
+const publicacionesIniciales = [
+  { id: 1, autor: "Valentina", emoji: "💜", texto: "¿Alguien quiere ir al cine este sábado? 🎬", likes: 12, meGusta: false, grupo: "spark", tiempo: "hace 2hs" },
+  { id: 2, autor: "Lucas", emoji: "💚", texto: "Recomiendo el nuevo restaurante del centro 🍝", likes: 8, meGusta: false, grupo: "spark", tiempo: "hace 4hs" },
+  { id: 3, autor: "Sofia", emoji: "🧡", texto: "Buscando planes para el finde 🌿", likes: 15, meGusta: false, grupo: "spark", tiempo: "hace 6hs" },
 ];
 
 const mensajeBienvenida = [
   { id: 'w1', texto: "👋 ¡Bienvenido/a a VYNKA!\n\nSoy tu asistente de bienvenida.", mio: false, esVynka: true },
   { id: 'w2', texto: "📡 En el RADAR ves las personas cercanas. Tocá un perfil para verlo y dar like.", mio: false, esVynka: true },
   { id: 'w3', texto: "💬 Cuando dos personas se dan like, ¡es un MATCH! Ahí pueden chatear gratis.", mio: false, esVynka: true },
-  { id: 'w4', texto: "🎭 En SALIDAS encontrás eventos y podés enviar invitaciones a tus matches como cita.", mio: false, esVynka: true },
-  { id: 'w5', texto: "🏆 En TOP ves los perfiles más queridos y las historias del día.\n\n¡Que empiece la conexión! ✨", mio: false, esVynka: true },
+  { id: 'w4', texto: "🎭 En SALIDAS encontrás eventos y podés enviar invitaciones a tus matches.", mio: false, esVynka: true },
+  { id: 'w5', texto: "🏆 En TOP ves los perfiles más queridos, historias y publicaciones.\n\n¡Que empiece la conexión! ✨", mio: false, esVynka: true },
 ];
 
 function sonCompatibles(miGenero, miBusqueda, otroGenero, otroBusqueda) {
@@ -101,9 +104,11 @@ const estadoInicial = { likes: [], matches: [], chats: {}, bloqueados: [] };
 function MainApp({ sesion, onCerrarSesion }) {
   const [pantalla, setPantalla] = useState('inicio');
   const [tabActivo, setTabActivo] = useState('radar');
+  const [tabTop, setTabTop] = useState('likeados');
   const [grupo, setGrupo] = useState(null);
   const [explorarTodos, setExplorarTodos] = useState(false);
   const [form, setForm] = useState({ nombre: "", edad: "", genero: "", actividadesElegidas: [], buscaPareja: "" });
+  const [miPerfil, setMiPerfil] = useState({ fotos: [], descripcion: "", instagram: "", tiktok: "", twitter: "" });
   const [estadoSpark, setEstadoSpark] = useState({ ...estadoInicial, chats: { 'VYNKA': [...mensajeBienvenida] } });
   const [estadoEsencia, setEstadoEsencia] = useState({ ...estadoInicial, chats: { 'VYNKA': [...mensajeBienvenida] } });
   const [chatAbierto, setChatAbierto] = useState(null);
@@ -119,11 +124,14 @@ function MainApp({ sesion, onCerrarSesion }) {
   const [citaEnviada, setCitaEnviada] = useState(null);
   const [tabSalidas, setTabSalidas] = useState('todas');
   const [historias, setHistorias] = useState(historiasIniciales);
+  const [publicaciones, setPublicaciones] = useState(publicacionesIniciales);
   const [historiaViendo, setHistoriaViendo] = useState(null);
   const [nuevaHistoria, setNuevaHistoria] = useState("");
-  const [fotoHistoria, setFotoHistoria] = useState(null);
+  const [mediaHistoria, setMediaHistoria] = useState(null);
+  const [tipoMedia, setTipoMedia] = useState(null);
   const [etiquetaSeleccionada, setEtiquetaSeleccionada] = useState("");
   const [filtroEtiqueta, setFiltroEtiqueta] = useState("Todas");
+  const [nuevaPublicacion, setNuevaPublicacion] = useState("");
   const [corazonesPerfiles, setCorazonesPerfiles] = useState({});
   const [misCorazones, setMisCorazones] = useState([]);
   const [mostrarCambioGrupo, setMostrarCambioGrupo] = useState(false);
@@ -133,6 +141,7 @@ function MainApp({ sesion, onCerrarSesion }) {
   const tema = grupo === 'spark' ? SPARK : ESENCIA;
   const estado = grupo === 'spark' ? estadoSpark : estadoEsencia;
   const setEstado = grupo === 'spark' ? setEstadoSpark : setEstadoEsencia;
+  const esEsencia = grupo === 'esencia';
 
   useEffect(() => {
     const backAction = () => {
@@ -161,9 +170,7 @@ function MainApp({ sesion, onCerrarSesion }) {
   }, [notifVisto]);
 
   const determinarGrupo = (edad) => parseInt(edad) >= 45 ? 'esencia' : 'spark';
-
   const puedeRegistrarse = () => parseInt(form.edad) >= 18;
-
   const formularioCompleto = () => form.nombre && puedeRegistrarse() && form.genero && form.actividadesElegidas.length > 0 && form.buscaPareja;
 
   const toggleActividad = (act) => {
@@ -217,20 +224,50 @@ function MainApp({ sesion, onCerrarSesion }) {
     }
   };
 
-  const elegirFotoHistoria = async () => {
+  const elegirMediaHistoria = async (tipo) => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permiso.granted) { alert("Necesitamos permiso para acceder a tus fotos"); return; }
-    const resultado = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.8 });
-    if (!resultado.canceled) setFotoHistoria(resultado.assets[0].uri);
+    if (!permiso.granted) { alert("Necesitamos permiso para acceder a tus archivos"); return; }
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: tipo === 'video' ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      videoMaxDuration: 30,
+    });
+    if (!resultado.canceled) {
+      setMediaHistoria(resultado.assets[0].uri);
+      setTipoMedia(tipo);
+    }
   };
 
   const publicarHistoria = () => {
-    if (!nuevaHistoria.trim() && !fotoHistoria) return;
+    if (!nuevaHistoria.trim() && !mediaHistoria) return;
     if (!etiquetaSeleccionada) { alert("Elegí una etiqueta para tu historia"); return; }
     const yaPublico = historias.find(h => h.autor === form.nombre && h.mia);
     if (yaPublico) { alert("Solo podés publicar 1 historia por día"); return; }
-    setHistorias([{ id: Date.now(), autorId: 0, autor: form.nombre, emoji: '⭐', texto: nuevaHistoria, foto: fotoHistoria, likes: 0, meGusta: false, mia: true, grupo, etiqueta: etiquetaSeleccionada }, ...historias]);
-    setNuevaHistoria(""); setFotoHistoria(null); setEtiquetaSeleccionada("");
+    setHistorias([{ id: Date.now(), autorId: 0, autor: form.nombre, emoji: '⭐', texto: nuevaHistoria, media: mediaHistoria, tipoMedia, likes: 0, meGusta: false, mia: true, grupo, etiqueta: etiquetaSeleccionada }, ...historias]);
+    setNuevaHistoria(""); setMediaHistoria(null); setTipoMedia(null); setEtiquetaSeleccionada("");
+  };
+
+  const publicarPost = () => {
+    if (!nuevaPublicacion.trim()) return;
+    const yaPublico = publicaciones.find(p => p.autor === form.nombre && p.mia);
+    if (yaPublico) { alert("Solo podés publicar 1 post por día"); return; }
+    setPublicaciones([{ id: Date.now(), autor: form.nombre, emoji: '⭐', texto: nuevaPublicacion, likes: 0, meGusta: false, grupo, tiempo: "ahora", mia: true }, ...publicaciones]);
+    setNuevaPublicacion("");
+  };
+
+  const agregarFotoPerfil = async () => {
+    const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permiso.granted) { alert("Necesitamos permiso"); return; }
+    const resultado = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+    if (!resultado.canceled && miPerfil.fotos.length < 6) {
+      setMiPerfil(prev => ({ ...prev, fotos: [...prev.fotos, resultado.assets[0].uri] }));
+    }
+  };
+
+  const eliminarFotoPerfil = (index) => {
+    setMiPerfil(prev => ({ ...prev, fotos: prev.fotos.filter((_, i) => i !== index) }));
   };
 
   const enviarCita = (salida, contacto) => {
@@ -244,15 +281,29 @@ function MainApp({ sesion, onCerrarSesion }) {
   const misMatchesNombres = perfilesPrueba.filter(p => estado.matches.includes(p.id)).map(p => p.nombre);
   const todosLosChats = ['VYNKA', ...misMatchesNombres];
 
+  // FILTRO CORRECTO DEL RADAR
   const perfilesFiltrados = perfilesPrueba.filter(p => {
     if (estado.bloqueados.includes(p.id)) return false;
-    if (explorarTodos) return p.accesoDual || p.grupo === grupo;
-    return p.grupo === grupo && sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja);
+    if (explorarTodos) {
+      const mismoGrupo = p.grupo === grupo;
+      const esDual = p.accesoDual;
+      if (!mismoGrupo && !esDual) return false;
+      return sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja);
+    }
+    if (p.grupo !== grupo) return false;
+    return sonCompatibles(form.genero, form.buscaPareja, p.genero, p.buscaPareja);
   });
 
   const perfilesTopSpark = [...perfilesPrueba.filter(p => p.grupo === 'spark')]
-    .sort((a, b) => ((b.corazones || 0) + (corazonesPerfiles[b.id] || 0)) - ((a.corazones || 0) + (corazonesPerfiles[a.id] || 0)))
-    .slice(0, 10);
+    .sort((a, b) => ((b.corazones || 0) + (corazonesPerfiles[b.id] || 0)) - ((a.corazones || 0) + (corazonesPerfiles[a.id] || 0)));
+
+  const miPosicionTop = () => {
+    const totalMios = misCorazones.length;
+    const posicion = perfilesTopSpark.findIndex(p => p.nombre === form.nombre);
+    return posicion >= 0 ? posicion + 1 : perfilesTopSpark.length + 1;
+  };
+
+  const misCorazonesTotal = misCorazones.length;
 
   const historiasGrupo = historias.filter(h => {
     const grupoOk = h.grupo === grupo;
@@ -260,7 +311,7 @@ function MainApp({ sesion, onCerrarSesion }) {
     return grupoOk && etiquetaOk;
   });
 
-  const esEsencia = grupo === 'esencia';
+  const publicacionesGrupo = publicaciones.filter(p => p.grupo === grupo);
 
   // PANTALLA INICIO
   if (pantalla === 'inicio') {
@@ -292,21 +343,18 @@ function MainApp({ sesion, onCerrarSesion }) {
             <Text style={{ color: '#A0A0A0', fontSize: 12, letterSpacing: 3, marginBottom: 12 }}>BIENVENIDO/A</Text>
             <Text style={{ color: '#fff', fontSize: 26, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>¿Cuál es tu mundo?</Text>
             <Text style={{ color: '#A0A0A0', fontSize: 13, marginBottom: 32, textAlign: 'center' }}>Tu grupo se asigna automáticamente por edad</Text>
-
             <TouchableOpacity style={{ backgroundColor: '#1A1A24', borderWidth: 1, borderColor: '#8A2BE244', borderRadius: 20, padding: 24, width: '100%', marginBottom: 16 }}
               onPress={() => { setGrupo('spark'); setPantalla('registro'); }}>
               <Text style={{ fontSize: 36, marginBottom: 8 }}>⚡</Text>
               <Text style={{ color: '#8A2BE2', fontSize: 22, fontWeight: 'bold', marginBottom: 6 }}>Spark</Text>
               <Text style={{ color: '#A0A0A0', fontSize: 13 }}>Menores de 45 años · Energía y aventura</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={{ backgroundColor: '#F0EFE9', borderWidth: 1, borderColor: '#004D4044', borderRadius: 20, padding: 24, width: '100%' }}
               onPress={() => { setGrupo('esencia'); setPantalla('registro'); }}>
               <Text style={{ fontSize: 36, marginBottom: 8 }}>✨</Text>
-              <Text style={{ color: '#004D40', fontSize: 22, fontWeight: 'bold', marginBottom: 6 }}>Esencia</Text>
+              <Text style={{ color: '#004D40', fontSize: 22, fontStyle: 'italic', fontWeight: '600', marginBottom: 6 }}>Esencia</Text>
               <Text style={{ color: '#5F6368', fontSize: 13 }}>45 años o más · Madurez y profundidad</Text>
             </TouchableOpacity>
-
             <View style={{ backgroundColor: VYNKA_BRAND + '22', borderRadius: 12, padding: 12, marginTop: 20, borderWidth: 1, borderColor: VYNKA_BRAND + '44', width: '100%' }}>
               <Text style={{ color: VYNKA_BRAND, fontSize: 13, textAlign: 'center' }}>✨ Acceso Dual Premium: aparecé en ambos grupos</Text>
             </View>
@@ -323,6 +371,8 @@ function MainApp({ sesion, onCerrarSesion }) {
     const fondoReg = grupoSugerido === 'spark' ? '#0D0D12' : '#FDFCF8';
     const textoReg = grupoSugerido === 'spark' ? '#fff' : '#1C1C1C';
     const textoSecReg = grupoSugerido === 'spark' ? '#A0A0A0' : '#5F6368';
+    const cardReg = grupoSugerido === 'spark' ? '#1A1A24' : '#F0EFE9';
+    const borderReg = grupoSugerido === 'spark' ? '#2A2A3A' : '#E0DDD5';
 
     return (
       <SafeAreaProvider>
@@ -333,39 +383,36 @@ function MainApp({ sesion, onCerrarSesion }) {
               <Text style={{ color: colorReg, fontSize: 16 }}>← Volver</Text>
             </TouchableOpacity>
             <Text style={{ color: colorReg, fontSize: 12, letterSpacing: 2, marginBottom: 4 }}>{grupoSugerido === 'spark' ? '⚡ SPARK' : '✨ ESENCIA'}</Text>
-            <Text style={{ color: textoReg, fontSize: 24, fontWeight: 'bold', marginBottom: 24 }}>Creá tu perfil</Text>
+            <Text style={{ color: textoReg, fontSize: 24, fontWeight: 'bold', marginBottom: 24, fontStyle: grupoSugerido === 'esencia' ? 'italic' : 'normal' }}>Creá tu perfil</Text>
 
             <Text style={{ color: textoSecReg, fontSize: 13, marginBottom: 8 }}>Tu nombre</Text>
             <TextInput value={form.nombre} onChangeText={t => setForm({ ...form, nombre: t })} placeholder="¿Cómo te llaman?" placeholderTextColor={textoSecReg}
-              style={{ backgroundColor: grupoSugerido === 'spark' ? '#1A1A24' : '#F0EFE9', borderWidth: 1, borderColor: grupoSugerido === 'spark' ? '#2A2A3A' : '#E0DDD5', borderRadius: 12, padding: 12, color: textoReg, fontSize: 14, marginBottom: 16 }} />
+              style={{ backgroundColor: cardReg, borderWidth: 1, borderColor: borderReg, borderRadius: 12, padding: 12, color: textoReg, fontSize: 14, marginBottom: 16 }} />
 
             <Text style={{ color: textoSecReg, fontSize: 13, marginBottom: 8 }}>Tu edad</Text>
             <TextInput value={form.edad} onChangeText={t => { setForm({ ...form, edad: t }); if (parseInt(t) >= 18) setGrupo(determinarGrupo(t)); }}
               placeholder="¿Cuántos años tenés?" placeholderTextColor={textoSecReg} keyboardType="numeric"
-              style={{ backgroundColor: grupoSugerido === 'spark' ? '#1A1A24' : '#F0EFE9', borderWidth: 1, borderColor: grupoSugerido === 'spark' ? '#2A2A3A' : '#E0DDD5', borderRadius: 12, padding: 12, color: textoReg, fontSize: 14, marginBottom: 8 }} />
-
-            {form.edad !== "" && parseInt(form.edad) < 18 && (
-              <Text style={{ color: '#FF2D55', fontSize: 12, marginBottom: 8 }}>❌ Debes tener al menos 18 años</Text>
-            )}
+              style={{ backgroundColor: cardReg, borderWidth: 1, borderColor: borderReg, borderRadius: 12, padding: 12, color: textoReg, fontSize: 14, marginBottom: 8 }} />
+            {form.edad !== "" && parseInt(form.edad) < 18 && <Text style={{ color: '#FF2D55', fontSize: 12, marginBottom: 8 }}>❌ Debes tener al menos 18 años</Text>}
             {form.edad !== "" && parseInt(form.edad) >= 18 && (
               <View style={{ backgroundColor: colorReg + '22', borderRadius: 10, padding: 10, marginBottom: 16, borderWidth: 1, borderColor: colorReg + '44' }}>
-                <Text style={{ color: colorReg, fontSize: 13 }}>✅ Grupo asignado: {grupoSugerido === 'spark' ? '⚡ Spark (menores de 45)' : '✨ Esencia (45 o más)'}</Text>
+                <Text style={{ color: colorReg, fontSize: 13 }}>✅ Grupo: {grupoSugerido === 'spark' ? '⚡ Spark (menores de 45)' : '✨ Esencia (45 o más)'}</Text>
               </View>
             )}
 
             <Text style={{ color: textoSecReg, fontSize: 13, marginBottom: 12 }}>¿Cómo te identificás?</Text>
             {generos.map(g => (
               <TouchableOpacity key={g.id} onPress={() => setForm({ ...form, genero: g.id })}
-                style={{ borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 8, borderColor: form.genero === g.id ? colorReg : (grupoSugerido === 'spark' ? '#2A2A3A' : '#E0DDD5'), backgroundColor: form.genero === g.id ? colorReg + '22' : (grupoSugerido === 'spark' ? '#1A1A24' : '#F0EFE9') }}>
+                style={{ borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 8, borderColor: form.genero === g.id ? colorReg : borderReg, backgroundColor: form.genero === g.id ? colorReg + '22' : cardReg }}>
                 <Text style={{ color: form.genero === g.id ? colorReg : textoReg, fontSize: 15 }}>{g.emoji} {g.label}</Text>
               </TouchableOpacity>
             ))}
 
-            <Text style={{ color: textoSecReg, fontSize: 13, marginBottom: 8 }}>Actividades favoritas <Text style={{ color: textoSecReg + '88' }}>(hasta 3)</Text></Text>
+            <Text style={{ color: textoSecReg, fontSize: 13, marginBottom: 8 }}>Actividades favoritas <Text style={{ opacity: 0.6 }}>(hasta 3)</Text></Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
               {actividades.map(act => (
                 <TouchableOpacity key={act} onPress={() => toggleActividad(act)}
-                  style={{ borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderColor: form.actividadesElegidas.includes(act) ? colorReg : (grupoSugerido === 'spark' ? '#2A2A3A' : '#E0DDD5'), backgroundColor: form.actividadesElegidas.includes(act) ? colorReg + '22' : (grupoSugerido === 'spark' ? '#1A1A24' : '#F0EFE9') }}>
+                  style={{ borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderColor: form.actividadesElegidas.includes(act) ? colorReg : borderReg, backgroundColor: form.actividadesElegidas.includes(act) ? colorReg + '22' : cardReg }}>
                   <Text style={{ color: form.actividadesElegidas.includes(act) ? colorReg : textoReg, fontSize: 13 }}>{act}</Text>
                 </TouchableOpacity>
               ))}
@@ -375,7 +422,7 @@ function MainApp({ sesion, onCerrarSesion }) {
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
               {busquedas.map(op => (
                 <TouchableOpacity key={op.id} onPress={() => setForm({ ...form, buscaPareja: op.id })}
-                  style={{ flex: 1, borderWidth: 1, borderRadius: 12, padding: 10, alignItems: 'center', borderColor: form.buscaPareja === op.id ? colorReg : (grupoSugerido === 'spark' ? '#2A2A3A' : '#E0DDD5'), backgroundColor: form.buscaPareja === op.id ? colorReg + '22' : (grupoSugerido === 'spark' ? '#1A1A24' : '#F0EFE9') }}>
+                  style={{ flex: 1, borderWidth: 1, borderRadius: 12, padding: 10, alignItems: 'center', borderColor: form.buscaPareja === op.id ? colorReg : borderReg, backgroundColor: form.buscaPareja === op.id ? colorReg + '22' : cardReg }}>
                   <Text style={{ fontSize: 20 }}>{op.emoji}</Text>
                   <Text style={{ color: form.buscaPareja === op.id ? colorReg : textoReg, fontSize: 13 }}>{op.label}</Text>
                 </TouchableOpacity>
@@ -383,7 +430,7 @@ function MainApp({ sesion, onCerrarSesion }) {
             </View>
 
             <TouchableOpacity onPress={() => { if (formularioCompleto()) setPantalla('main'); }}
-              style={{ borderRadius: 12, paddingVertical: 14, paddingHorizontal: 24, alignItems: 'center', backgroundColor: formularioCompleto() ? colorReg : '#ffffff22' }}>
+              style={{ borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: formularioCompleto() ? colorReg : '#ffffff22' }}>
               <Text style={{ color: formularioCompleto() ? '#fff' : '#ffffff55', fontSize: 15, fontWeight: 'bold' }}>Crear mi perfil ✨</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -392,7 +439,7 @@ function MainApp({ sesion, onCerrarSesion }) {
     );
   }
 
-  // VER PERFIL
+  // VER PERFIL DE OTRO
   if (perfilViendo) {
     const tieneMatch = estado.matches.includes(perfilViendo.id);
     const dioLike = estado.likes.includes(perfilViendo.id);
@@ -406,7 +453,7 @@ function MainApp({ sesion, onCerrarSesion }) {
             <TouchableOpacity onPress={() => setPerfilViendo(null)}>
               <Text style={{ color: temaP.accion, fontSize: 20, marginRight: 12 }}>←</Text>
             </TouchableOpacity>
-            <Text style={{ color: temaP.texto, fontWeight: 'bold', fontSize: 18 }}>Perfil</Text>
+            <Text style={{ color: temaP.texto, fontWeight: 'bold', fontSize: 18, fontStyle: perfilViendo.grupo === 'esencia' ? 'italic' : 'normal' }}>Perfil</Text>
           </View>
           <ScrollView contentContainerStyle={{ padding: 24 }}>
             <View style={{ alignItems: 'center', marginBottom: 24 }}>
@@ -519,7 +566,6 @@ function MainApp({ sesion, onCerrarSesion }) {
               </TouchableOpacity>
             )}
           </View>
-
           <ScrollView style={{ flex: 1, padding: 16 }}>
             {mensajesChat.map(msg => (
               <View key={msg.id} style={{ alignItems: msg.mio ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
@@ -529,42 +575,20 @@ function MainApp({ sesion, onCerrarSesion }) {
                     <Text style={{ color: VYNKA_BRAND, fontSize: 11, fontWeight: 'bold' }}>VYNKA</Text>
                   </View>
                 )}
-                <View style={{
-                  backgroundColor: msg.esVynka ? VYNKA_BRAND + '22' : msg.esCita ? tema.accion + '33' : msg.mio ? tema.accion : tema.card,
-                  borderRadius: 16, padding: 12, maxWidth: '82%',
-                  borderWidth: msg.esVynka ? 1 : msg.esCita ? 1 : 0,
-                  borderColor: msg.esVynka ? VYNKA_BRAND + '66' : msg.esCita ? tema.accion : 'transparent'
-                }}>
+                <View style={{ backgroundColor: msg.esVynka ? VYNKA_BRAND + '22' : msg.esCita ? tema.accion + '33' : msg.mio ? tema.accion : tema.card, borderRadius: 16, padding: 12, maxWidth: '82%', borderWidth: msg.esVynka || msg.esCita ? 1 : 0, borderColor: msg.esVynka ? VYNKA_BRAND + '66' : msg.esCita ? tema.accion : 'transparent' }}>
                   <Text style={{ color: msg.mio && !msg.esCita && !msg.esVynka ? '#fff' : tema.texto, fontSize: 14 }}>{msg.texto}</Text>
                 </View>
               </View>
             ))}
           </ScrollView>
-
           {!esVynka && (
             <View style={{ flexDirection: 'row', padding: 12, borderTopWidth: 1, borderTopColor: tema.border, gap: 8 }}>
               <TextInput value={textoMensaje} onChangeText={setTextoMensaje} placeholder="Escribí un mensaje..." placeholderTextColor={tema.textoSec}
                 style={{ flex: 1, backgroundColor: tema.card, borderWidth: 1, borderColor: tema.border, borderRadius: 12, padding: 12, color: tema.texto, fontSize: 14 }} />
               <TouchableOpacity onPress={enviarMensaje}
-                style={{ borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, alignItems: 'center', backgroundColor: textoMensaje.trim() ? tema.accion : tema.card }}>
+                style={{ borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: textoMensaje.trim() ? tema.accion : tema.card }}>
                 <Text style={{ color: textoMensaje.trim() ? '#fff' : tema.textoSec, fontWeight: 'bold' }}>➤</Text>
               </TouchableOpacity>
-            </View>
-          )}
-
-          {confirmBloqueo && (
-            <View style={s.overlay}>
-              <View style={[s.popup, { backgroundColor: tema.fondo, borderColor: tema.border }]}>
-                <Text style={{ fontSize: 48, marginBottom: 12 }}>🚫</Text>
-                <Text style={{ color: tema.texto, fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>¿Bloquear a {confirmBloqueo.nombre}?</Text>
-                <Text style={{ color: tema.textoSec, fontSize: 13, marginBottom: 24, textAlign: 'center' }}>No se podrán ver ni contactar.</Text>
-                <TouchableOpacity onPress={() => bloquear(confirmBloqueo)} style={{ borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: '#FF2D55', width: '100%', marginBottom: 8 }}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Sí, bloquear</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setConfirmBloqueo(null)}>
-                  <Text style={{ color: tema.textoSec, fontSize: 14 }}>Cancelar</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           )}
         </SafeAreaView>
@@ -594,7 +618,11 @@ function MainApp({ sesion, onCerrarSesion }) {
                 <Text style={{ color: VYNKA_BRAND, fontSize: 12 }}>{historiaViendo.etiqueta}</Text>
               </View>
             )}
-            {historiaViendo.foto && <Image source={{ uri: historiaViendo.foto }} style={{ width: '100%', height: 300, borderRadius: 16, marginBottom: 16 }} />}
+            {historiaViendo.tipoMedia === 'video' && historiaViendo.media ? (
+              <Video source={{ uri: historiaViendo.media }} style={{ width: '100%', height: 300, borderRadius: 16, marginBottom: 16 }} useNativeControls resizeMode="contain" shouldPlay />
+            ) : historiaViendo.media ? (
+              <Image source={{ uri: historiaViendo.media }} style={{ width: '100%', height: 300, borderRadius: 16, marginBottom: 16 }} />
+            ) : null}
             {historiaViendo.texto ? <Text style={{ color: '#fff', fontSize: 16, textAlign: 'center' }}>{historiaViendo.texto}</Text> : null}
           </View>
         </SafeAreaView>
@@ -624,7 +652,7 @@ function MainApp({ sesion, onCerrarSesion }) {
               quienMeVio.map(perfil => (
                 <TouchableOpacity key={perfil.id} onPress={() => { setMostrarQuienMeVio(false); setPerfilViendo(perfil); }}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: tema.card, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: tema.border }}>
-                  <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: tema.fondo, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: tema.border }}>
+                  <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: tema.fondo, alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={{ fontSize: 24 }}>{perfil.emoji}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -666,8 +694,8 @@ function MainApp({ sesion, onCerrarSesion }) {
           }
           renderItem={({ item: perfil }) => (
             <TouchableOpacity onPress={() => verPerfil(perfil)}
-              style={{ flex: 1, margin: 6, backgroundColor: tema.card, borderWidth: 1, borderColor: estado.matches.includes(perfil.id) ? '#4CAF5044' : perfil.grupo !== grupo ? VYNKA_BRAND + '33' : tema.border, borderRadius: 16, padding: 12, alignItems: 'center' }}>
-              {perfil.accesoDual && (
+              style={{ flex: 1, margin: 6, backgroundColor: tema.card, borderWidth: 1, borderColor: estado.matches.includes(perfil.id) ? '#4CAF5044' : perfil.accesoDual && perfil.grupo !== grupo ? VYNKA_BRAND + '44' : tema.border, borderRadius: 16, padding: 12, alignItems: 'center' }}>
+              {perfil.accesoDual && perfil.grupo !== grupo && (
                 <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: VYNKA_BRAND + '33', borderRadius: 10, paddingHorizontal: 5, paddingVertical: 2 }}>
                   <Text style={{ color: VYNKA_BRAND, fontSize: 9 }}>DUAL</Text>
                 </View>
@@ -687,7 +715,7 @@ function MainApp({ sesion, onCerrarSesion }) {
               <Text style={{ color: tema.textoSec, fontSize: 11 }}>📍 {perfil.km} km</Text>
               <View style={{ flexDirection: 'row', gap: 4, marginTop: 8 }}>
                 <TouchableOpacity onPress={() => darLike(perfil)}
-                  style={{ backgroundColor: estado.likes.includes(perfil.id) ? tema.card : tema.accion + '33', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  style={{ backgroundColor: estado.likes.includes(perfil.id) ? tema.card : tema.accion + '33', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: tema.border }}>
                   <Text style={{ fontSize: 14 }}>❤️</Text>
                 </TouchableOpacity>
                 {estado.matches.includes(perfil.id) && (
@@ -720,12 +748,10 @@ function MainApp({ sesion, onCerrarSesion }) {
               <View style={{ flex: 1 }}>
                 <Text style={{ color: esVynka ? VYNKA_BRAND : tema.texto, fontWeight: 'bold', fontSize: 15 }}>{nombre}</Text>
                 <Text style={{ color: tema.textoSec, fontSize: 13 }} numberOfLines={1}>
-                  {ultimoMsg ? (ultimoMsg.mio ? 'Vos: ' : '') + ultimoMsg.texto : esVynka ? 'Bienvenido/a a VYNKA ✨' : '🎉 ¡Match! Empezá la conversación'}
+                  {ultimoMsg ? (ultimoMsg.mio ? 'Vos: ' : '') + ultimoMsg.texto : esVynka ? 'Bienvenido/a a VYNKA ✨' : '🎉 ¡Match!'}
                 </Text>
               </View>
-              {esVynka && (
-                <View style={{ backgroundColor: VYNKA_BRAND, borderRadius: 10, width: 8, height: 8 }} />
-              )}
+              {esVynka && <View style={{ backgroundColor: VYNKA_BRAND, borderRadius: 10, width: 8, height: 8 }} />}
             </TouchableOpacity>
           );
         })}
@@ -733,114 +759,181 @@ function MainApp({ sesion, onCerrarSesion }) {
     );
 
     const renderTop = () => (
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
-        {/* Burbujas historias */}
-        {historiasGrupo.length > 0 && (
-          <View style={{ marginBottom: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ color: tema.textoSec, fontSize: 11, letterSpacing: 2 }}>HISTORIAS</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
-                {['Todas', ...etiquetasHistoria].map(et => (
-                  <TouchableOpacity key={et} onPress={() => setFiltroEtiqueta(et)}
-                    style={{ backgroundColor: filtroEtiqueta === et ? tema.accion + '33' : tema.card, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginRight: 6, borderWidth: 1, borderColor: filtroEtiqueta === et ? tema.accion : tema.border }}>
-                    <Text style={{ color: filtroEtiqueta === et ? tema.accion : tema.textoSec, fontSize: 11 }}>{et}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <TouchableOpacity style={{ alignItems: 'center', marginRight: 16 }}>
-                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: tema.accion + '22', borderWidth: 2, borderColor: tema.accion, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-                  <Text style={{ fontSize: 28 }}>➕</Text>
-                </View>
-                <Text style={{ color: tema.textoSec, fontSize: 11 }}>Tu historia</Text>
-              </TouchableOpacity>
-              {historiasGrupo.map(h => (
-                <TouchableOpacity key={h.id} style={{ alignItems: 'center', marginRight: 16 }} onPress={() => setHistoriaViendo(h)}>
-                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: tema.card, borderWidth: 2, borderColor: grupo === 'spark' ? SPARK.historias : ESENCIA.historias, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-                    <Text style={{ fontSize: 28 }}>{h.emoji}</Text>
-                  </View>
-                  <Text style={{ color: tema.textoSec, fontSize: 11 }} numberOfLines={1}>{h.autor}</Text>
-                  {h.etiqueta && <Text style={{ color: VYNKA_BRAND, fontSize: 9 }}>{h.etiqueta.split(' ')[0]}</Text>}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Publicar historia */}
-        <View style={{ marginBottom: 16, backgroundColor: tema.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: tema.border }}>
-          <Text style={{ color: tema.textoSec, fontSize: 13, marginBottom: 8 }}>📖 Historia del día</Text>
-          <TextInput value={nuevaHistoria} onChangeText={setNuevaHistoria} placeholder="Contá algo..." placeholderTextColor={tema.textoSec}
-            style={{ backgroundColor: tema.fondo, borderWidth: 1, borderColor: tema.border, borderRadius: 12, padding: 12, color: tema.texto, fontSize: 14, marginBottom: 8 }} multiline />
-
-          <Text style={{ color: tema.textoSec, fontSize: 12, marginBottom: 8 }}>Etiqueta obligatoria:</Text>
-          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-            {etiquetasHistoria.map(et => (
-              <TouchableOpacity key={et} onPress={() => setEtiquetaSeleccionada(et)}
-                style={{ backgroundColor: etiquetaSeleccionada === et ? tema.accion + '33' : tema.fondo, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: etiquetaSeleccionada === et ? tema.accion : tema.border }}>
-                <Text style={{ color: etiquetaSeleccionada === et ? tema.accion : tema.textoSec, fontSize: 12 }}>{et}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {fotoHistoria && (
-            <View style={{ position: 'relative', marginBottom: 8 }}>
-              <Image source={{ uri: fotoHistoria }} style={{ width: '100%', height: 180, borderRadius: 12 }} />
-              <TouchableOpacity onPress={() => setFotoHistoria(null)}
-                style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#000000AA', borderRadius: 15, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#fff' }}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity onPress={elegirFotoHistoria}
-              style={{ flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: tema.fondo, borderWidth: 1, borderColor: tema.border }}>
-              <Text style={{ color: tema.textoSec, fontSize: 13 }}>📸 Foto</Text>
+      <View style={{ flex: 1 }}>
+        {/* Tabs top */}
+        <View style={{ flexDirection: 'row', padding: 12, gap: 8 }}>
+          {['likeados', 'publicaciones'].map(t => (
+            <TouchableOpacity key={t} onPress={() => setTabTop(t)}
+              style={{ flex: 1, borderWidth: 1, borderRadius: 20, paddingVertical: 8, alignItems: 'center', borderColor: tabTop === t ? tema.accion : tema.border, backgroundColor: tabTop === t ? tema.accion + '22' : tema.card }}>
+              <Text style={{ color: tabTop === t ? tema.accion : tema.textoSec, fontSize: 13, fontWeight: tabTop === t ? 'bold' : 'normal' }}>
+                {t === 'likeados' ? '🏆 Más likeados' : '📝 Publicaciones'}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={publicarHistoria}
-              style={{ flex: 2, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: tema.accion }}>
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Publicar ✨</Text>
-            </TouchableOpacity>
-          </View>
+          ))}
         </View>
 
-        {/* Top perfiles */}
-        <Text style={{ color: tema.textoSec, fontSize: 11, letterSpacing: 2, marginBottom: 12 }}>
-          {grupo === 'spark' ? '🏆 MÁS LIKEADOS — SPARK' : '✨ DESTACADOS — ESENCIA'}
-        </Text>
+        {tabTop === 'likeados' ? (
+          <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0 }}>
+            {/* Burbujas historias */}
+            {historiasGrupo.length > 0 && (
+              <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={{ color: tema.textoSec, fontSize: 11, letterSpacing: 2 }}>HISTORIAS</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                  {['Todas', ...etiquetasHistoria].map(et => (
+                    <TouchableOpacity key={et} onPress={() => setFiltroEtiqueta(et)}
+                      style={{ backgroundColor: filtroEtiqueta === et ? tema.accion + '33' : tema.card, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginRight: 6, borderWidth: 1, borderColor: filtroEtiqueta === et ? tema.accion : tema.border }}>
+                      <Text style={{ color: filtroEtiqueta === et ? tema.accion : tema.textoSec, fontSize: 11 }}>{et}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <TouchableOpacity style={{ alignItems: 'center', marginRight: 16 }}>
+                    <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: tema.accion + '22', borderWidth: 2, borderColor: tema.accion, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 28 }}>➕</Text>
+                    </View>
+                    <Text style={{ color: tema.textoSec, fontSize: 11 }}>Tu historia</Text>
+                  </TouchableOpacity>
+                  {historiasGrupo.map(h => (
+                    <TouchableOpacity key={h.id} style={{ alignItems: 'center', marginRight: 16 }} onPress={() => setHistoriaViendo(h)}>
+                      <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: tema.card, borderWidth: 2, borderColor: grupo === 'spark' ? SPARK.historias : ESENCIA.historias, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                        {h.tipoMedia === 'video' ? <Text style={{ fontSize: 28 }}>🎥</Text> : <Text style={{ fontSize: 28 }}>{h.emoji}</Text>}
+                      </View>
+                      <Text style={{ color: tema.textoSec, fontSize: 11 }} numberOfLines={1}>{h.autor}</Text>
+                      {h.etiqueta && <Text style={{ color: VYNKA_BRAND, fontSize: 9 }}>{h.etiqueta.split(' ')[0]}</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
-        {grupo === 'spark' ? (
-          perfilesTopSpark.map((perfil, index) => {
-            const totalCorazones = (perfil.corazones || 0) + (corazonesPerfiles[perfil.id] || 0);
-            return (
-              <TouchableOpacity key={perfil.id} onPress={() => verPerfil(perfil)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: tema.card, borderWidth: 1, borderColor: tema.border, borderRadius: 16, padding: 14, marginBottom: 10 }}>
-                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : tema.fondo, alignItems: 'center', justifyContent: 'center', borderWidth: index >= 3 ? 1 : 0, borderColor: tema.border }}>
-                  <Text style={{ color: index < 3 ? '#000' : tema.textoSec, fontWeight: 'bold', fontSize: 14 }}>{index + 1}</Text>
+            {/* Publicar historia */}
+            <View style={{ marginBottom: 16, backgroundColor: tema.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: tema.border }}>
+              <Text style={{ color: tema.textoSec, fontSize: 13, marginBottom: 8 }}>📖 Historia del día</Text>
+              <TextInput value={nuevaHistoria} onChangeText={setNuevaHistoria} placeholder="Contá algo..." placeholderTextColor={tema.textoSec}
+                style={{ backgroundColor: tema.fondo, borderWidth: 1, borderColor: tema.border, borderRadius: 12, padding: 12, color: tema.texto, fontSize: 14, marginBottom: 8 }} multiline />
+
+              <Text style={{ color: tema.textoSec, fontSize: 12, marginBottom: 8 }}>Etiqueta obligatoria:</Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                {etiquetasHistoria.map(et => (
+                  <TouchableOpacity key={et} onPress={() => setEtiquetaSeleccionada(et)}
+                    style={{ backgroundColor: etiquetaSeleccionada === et ? tema.accion + '33' : tema.fondo, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: etiquetaSeleccionada === et ? tema.accion : tema.border }}>
+                    <Text style={{ color: etiquetaSeleccionada === et ? tema.accion : tema.textoSec, fontSize: 12 }}>{et}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {mediaHistoria && (
+                <View style={{ position: 'relative', marginBottom: 8 }}>
+                  {tipoMedia === 'video' ? (
+                    <Video source={{ uri: mediaHistoria }} style={{ width: '100%', height: 180, borderRadius: 12 }} useNativeControls resizeMode="contain" />
+                  ) : (
+                    <Image source={{ uri: mediaHistoria }} style={{ width: '100%', height: 180, borderRadius: 12 }} />
+                  )}
+                  <TouchableOpacity onPress={() => { setMediaHistoria(null); setTipoMedia(null); }}
+                    style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#000000AA', borderRadius: 15, width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: '#fff' }}>✕</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: tema.fondo, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: tema.border }}>
-                  <Text style={{ fontSize: 24 }}>{perfil.emoji}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: tema.texto, fontWeight: 'bold', fontSize: 15 }}>{perfil.nombre}, {perfil.edad}</Text>
-                  <Text style={{ color: tema.textoSec, fontSize: 12 }}>📍 {perfil.km} km</Text>
-                </View>
-                <View style={{ alignItems: 'center' }}>
-                  <Text style={{ fontSize: 20 }}>❤️</Text>
-                  <Text style={{ color: SPARK.corazon, fontWeight: 'bold', fontSize: 14 }}>{totalCorazones}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <TouchableOpacity onPress={() => elegirMediaHistoria('foto')}
+                  style={{ flex: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center', backgroundColor: tema.fondo, borderWidth: 1, borderColor: tema.border }}>
+                  <Text style={{ color: tema.textoSec, fontSize: 12 }}>📸 Foto</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => elegirMediaHistoria('video')}
+                  style={{ flex: 1, borderRadius: 12, paddingVertical: 10, alignItems: 'center', backgroundColor: tema.fondo, borderWidth: 1, borderColor: tema.border }}>
+                  <Text style={{ color: tema.textoSec, fontSize: 12 }}>🎥 Video</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={publicarHistoria}
+                  style={{ flex: 2, borderRadius: 12, paddingVertical: 10, alignItems: 'center', backgroundColor: tema.accion }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>Publicar ✨</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Top perfiles */}
+            <Text style={{ color: tema.textoSec, fontSize: 11, letterSpacing: 2, marginBottom: 12 }}>
+              {grupo === 'spark' ? '🏆 TOP 1000 — MÁS LIKEADOS SPARK' : '✨ DESTACADOS — ESENCIA'}
+            </Text>
+
+            {grupo === 'spark' ? (
+              perfilesTopSpark.map((perfil, index) => {
+                const totalCorazones = (perfil.corazones || 0) + (corazonesPerfiles[perfil.id] || 0);
+                return (
+                  <TouchableOpacity key={perfil.id} onPress={() => verPerfil(perfil)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: tema.card, borderWidth: 1, borderColor: index === 0 ? '#FFD70044' : tema.border, borderRadius: 16, padding: 14, marginBottom: 10 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : tema.fondo, alignItems: 'center', justifyContent: 'center', borderWidth: index >= 3 ? 1 : 0, borderColor: tema.border }}>
+                      <Text style={{ color: index < 3 ? '#000' : tema.textoSec, fontWeight: 'bold', fontSize: 14 }}>#{index + 1}</Text>
+                    </View>
+                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: tema.fondo, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: tema.border }}>
+                      <Text style={{ fontSize: 24 }}>{perfil.emoji}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: tema.texto, fontWeight: 'bold', fontSize: 15 }}>{perfil.nombre}, {perfil.edad}</Text>
+                      <Text style={{ color: tema.textoSec, fontSize: 12 }}>📍 {perfil.km} km</Text>
+                    </View>
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={{ fontSize: 18 }}>❤️</Text>
+                      <Text style={{ color: SPARK.corazon, fontWeight: 'bold', fontSize: 14 }}>{totalCorazones}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <View style={{ alignItems: 'center', padding: 30, backgroundColor: tema.card, borderRadius: 16, borderWidth: 1, borderColor: ESENCIA.accion + '33' }}>
+                <Text style={{ fontSize: 40, marginBottom: 12 }}>✨</Text>
+                <Text style={{ color: ESENCIA.accion, fontWeight: 'bold', fontSize: 16, fontStyle: 'italic', marginBottom: 8 }}>Esencia</Text>
+                <Text style={{ color: tema.textoSec, textAlign: 'center', fontSize: 13 }}>El ranking es exclusivo de Spark</Text>
+              </View>
+            )}
+          </ScrollView>
         ) : (
-          <View style={{ alignItems: 'center', padding: 30, backgroundColor: tema.card, borderRadius: 16, borderWidth: 1, borderColor: ESENCIA.accion + '33' }}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>✨</Text>
-            <Text style={{ color: ESENCIA.accion, fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>Esencia</Text>
-            <Text style={{ color: tema.textoSec, textAlign: 'center', fontSize: 13 }}>El ranking es exclusivo de Spark</Text>
-          </View>
+          // PUBLICACIONES
+          <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0 }}>
+            {/* Nuevo post */}
+            <View style={{ backgroundColor: tema.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: tema.border, marginBottom: 16 }}>
+              <Text style={{ color: tema.textoSec, fontSize: 13, marginBottom: 8 }}>📝 Publicación del día</Text>
+              <TextInput value={nuevaPublicacion} onChangeText={setNuevaPublicacion} placeholder="¿Qué querés compartir?" placeholderTextColor={tema.textoSec}
+                style={{ backgroundColor: tema.fondo, borderWidth: 1, borderColor: tema.border, borderRadius: 12, padding: 12, color: tema.texto, fontSize: 14, marginBottom: 10 }} multiline />
+              <TouchableOpacity onPress={publicarPost}
+                style={{ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: tema.accion }}>
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Publicar 📝</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: tema.textoSec, fontSize: 11, letterSpacing: 2, marginBottom: 12 }}>PUBLICACIONES RECIENTES</Text>
+            {publicacionesGrupo.map(pub => (
+              <View key={pub.id} style={{ backgroundColor: tema.card, borderWidth: 1, borderColor: tema.border, borderRadius: 16, padding: 16, marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: tema.fondo, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: tema.border }}>
+                    <Text style={{ fontSize: 20 }}>{pub.emoji}</Text>
+                  </View>
+                  <View>
+                    <Text style={{ color: pub.mia ? tema.accion : tema.texto, fontWeight: 'bold' }}>{pub.autor}</Text>
+                    <Text style={{ color: tema.textoSec, fontSize: 11 }}>{pub.tiempo}</Text>
+                  </View>
+                </View>
+                <Text style={{ color: tema.texto, fontSize: 14, marginBottom: 12, lineHeight: 20 }}>{pub.texto}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity onPress={() => setPublicaciones(publicaciones.map(p => p.id === pub.id ? { ...p, meGusta: !p.meGusta, likes: p.meGusta ? p.likes - 1 : p.likes + 1 } : p))}
+                    style={{ borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderColor: pub.meGusta ? tema.accion : tema.border, backgroundColor: pub.meGusta ? tema.accion + '22' : tema.fondo }}>
+                    <Text style={{ color: pub.meGusta ? tema.accion : tema.textoSec, fontSize: 13 }}>❤️ {pub.likes}</Text>
+                  </TouchableOpacity>
+                  {pub.mia && (
+                    <TouchableOpacity onPress={() => setPublicaciones(publicaciones.filter(p => p.id !== pub.id))}
+                      style={{ borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderColor: '#FF2D5533', backgroundColor: '#FF2D5511' }}>
+                      <Text style={{ color: '#FF2D55', fontSize: 13 }}>🗑️ Borrar</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
         )}
-      </ScrollView>
+      </View>
     );
 
     const renderSalidas = () => {
@@ -862,7 +955,7 @@ function MainApp({ sesion, onCerrarSesion }) {
               <View key={pub.id} style={{ backgroundColor: tema.card, borderWidth: 1, borderColor: pub.color + '33', borderRadius: 16, padding: 16, marginBottom: 12 }}>
                 {tabSalidas === 'ranking' && (
                   <View style={{ position: 'absolute', top: 12, left: 12, width: 28, height: 28, borderRadius: 14, backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : tema.fondo, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 13 }}>{index + 1}</Text>
+                    <Text style={{ color: index < 3 ? '#000' : tema.textoSec, fontWeight: 'bold', fontSize: 13 }}>{index + 1}</Text>
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, marginLeft: tabSalidas === 'ranking' ? 36 : 0 }}>
@@ -923,11 +1016,45 @@ function MainApp({ sesion, onCerrarSesion }) {
 
     const renderMiPerfil = () => (
       <ScrollView contentContainerStyle={{ padding: 24 }}>
-        <View style={{ alignItems: 'center', marginBottom: 24 }}>
-          <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: tema.card, borderWidth: 2, borderColor: tema.accion, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-            <Text style={{ fontSize: 45 }}>👤</Text>
+        {/* Fotos */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: tema.textoSec, fontSize: 12, letterSpacing: 2, marginBottom: 12 }}>MIS FOTOS</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {miPerfil.fotos.map((foto, index) => (
+              <View key={index} style={{ position: 'relative' }}>
+                <Image source={{ uri: foto }} style={{ width: 90, height: 90, borderRadius: 12 }} />
+                <TouchableOpacity onPress={() => eliminarFotoPerfil(index)}
+                  style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#FF2D55', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: '#fff', fontSize: 12 }}>✕</Text>
+                </TouchableOpacity>
+                {index === 0 && (
+                  <View style={{ position: 'absolute', bottom: 4, left: 4, backgroundColor: VYNKA_BRAND + 'CC', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#fff', fontSize: 9 }}>Principal</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+            {miPerfil.fotos.length < 6 && (
+              <TouchableOpacity onPress={agregarFotoPerfil}
+                style={{ width: 90, height: 90, borderRadius: 12, backgroundColor: tema.card, borderWidth: 2, borderColor: tema.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 28, color: tema.textoSec }}>+</Text>
+                <Text style={{ color: tema.textoSec, fontSize: 10 }}>Foto</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <Text style={{ color: tema.texto, fontSize: 22, fontWeight: 'bold' }}>{form.nombre}</Text>
+          <Text style={{ color: tema.textoSec, fontSize: 11 }}>La primera foto es tu foto principal · Hasta 6 fotos</Text>
+        </View>
+
+        {/* Info principal */}
+        <View style={{ alignItems: 'center', marginBottom: 20 }}>
+          <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: tema.card, borderWidth: 2, borderColor: tema.accion, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+            {miPerfil.fotos.length > 0 ? (
+              <Image source={{ uri: miPerfil.fotos[0] }} style={{ width: 76, height: 76, borderRadius: 38 }} />
+            ) : (
+              <Text style={{ fontSize: 40 }}>👤</Text>
+            )}
+          </View>
+          <Text style={{ color: tema.texto, fontSize: 22, fontWeight: 'bold', fontStyle: esEsencia ? 'italic' : 'normal' }}>{form.nombre}</Text>
           <Text style={{ color: tema.textoSec, fontSize: 14 }}>{form.edad} años</Text>
           <Text style={{ color: tema.textoSec, fontSize: 12, marginTop: 4 }}>{sesion?.user?.email}</Text>
 
@@ -941,28 +1068,62 @@ function MainApp({ sesion, onCerrarSesion }) {
             </TouchableOpacity>
           </View>
 
+          {/* Stats */}
+          {grupo === 'spark' && (
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              <View style={{ backgroundColor: SPARK.corazon + '22', borderRadius: 16, padding: 14, alignItems: 'center', flex: 1, borderWidth: 1, borderColor: SPARK.corazon + '44' }}>
+                <Text style={{ fontSize: 24 }}>❤️</Text>
+                <Text style={{ color: SPARK.corazon, fontWeight: 'bold', fontSize: 20 }}>{misCorazonesTotal}</Text>
+                <Text style={{ color: tema.textoSec, fontSize: 11 }}>Corazones</Text>
+              </View>
+              <View style={{ backgroundColor: '#FFD70022', borderRadius: 16, padding: 14, alignItems: 'center', flex: 1, borderWidth: 1, borderColor: '#FFD70044' }}>
+                <Text style={{ fontSize: 24 }}>🏆</Text>
+                <Text style={{ color: '#FFD700', fontWeight: 'bold', fontSize: 20 }}>#{miPosicionTop()}</Text>
+                <Text style={{ color: tema.textoSec, fontSize: 11 }}>Top semanal</Text>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity onPress={() => setMostrarQuienMeVio(true)}
+            style={{ backgroundColor: tema.accion + '22', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginTop: 12, borderWidth: 1, borderColor: tema.accion + '44' }}>
+            <Text style={{ color: tema.accion, fontSize: 13 }}>👁️ {quienMeVio.length} {quienMeVio.length === 1 ? 'persona vio' : 'personas vieron'} tu perfil</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity onPress={() => setMostrarAccesoDual(true)}
             style={{ backgroundColor: VYNKA_BRAND + '22', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginTop: 10, borderWidth: 1, borderColor: VYNKA_BRAND + '44' }}>
             <Text style={{ color: VYNKA_BRAND, fontSize: 13 }}>⚡✨ Acceso Dual Premium</Text>
           </TouchableOpacity>
+        </View>
 
-          <TouchableOpacity onPress={() => setMostrarQuienMeVio(true)}
-            style={{ backgroundColor: tema.accion + '22', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginTop: 10, borderWidth: 1, borderColor: tema.accion + '44' }}>
-            <Text style={{ color: tema.accion, fontSize: 13 }}>👁️ {quienMeVio.length} {quienMeVio.length === 1 ? 'persona vio' : 'personas vieron'} tu perfil — Ver quiénes</Text>
-          </TouchableOpacity>
+        {/* Descripcion */}
+        <View style={{ backgroundColor: tema.card, borderWidth: 1, borderColor: tema.border, borderRadius: 16, padding: 16, marginBottom: 12 }}>
+          <Text style={{ color: tema.textoSec, fontSize: 12, marginBottom: 8 }}>MI DESCRIPCIÓN</Text>
+          <TextInput value={miPerfil.descripcion} onChangeText={t => setMiPerfil(prev => ({ ...prev, descripcion: t }))}
+            placeholder="Contá algo sobre vos..." placeholderTextColor={tema.textoSec} multiline maxLength={300}
+            style={{ color: tema.texto, fontSize: 14, lineHeight: 20 }} />
+          <Text style={{ color: tema.textoSec, fontSize: 11, textAlign: 'right', marginTop: 4 }}>{miPerfil.descripcion.length}/300</Text>
+        </View>
+
+        {/* Redes sociales */}
+        <View style={{ backgroundColor: tema.card, borderWidth: 1, borderColor: tema.border, borderRadius: 16, padding: 16, marginBottom: 12 }}>
+          <Text style={{ color: tema.textoSec, fontSize: 12, marginBottom: 12 }}>REDES SOCIALES</Text>
+          {[
+            { key: 'instagram', label: '📸 Instagram', placeholder: '@tuusuario' },
+            { key: 'tiktok', label: '🎵 TikTok', placeholder: '@tuusuario' },
+            { key: 'twitter', label: '🐦 X (Twitter)', placeholder: '@tuusuario' },
+          ].map(red => (
+            <View key={red.key} style={{ marginBottom: 10 }}>
+              <Text style={{ color: tema.textoSec, fontSize: 12, marginBottom: 4 }}>{red.label}</Text>
+              <TextInput value={miPerfil[red.key]} onChangeText={t => setMiPerfil(prev => ({ ...prev, [red.key]: t }))}
+                placeholder={red.placeholder} placeholderTextColor={tema.textoSec}
+                style={{ backgroundColor: tema.fondo, borderWidth: 1, borderColor: tema.border, borderRadius: 10, padding: 10, color: tema.texto, fontSize: 14 }} />
+            </View>
+          ))}
         </View>
 
         <View style={{ backgroundColor: tema.card, borderWidth: 1, borderColor: tema.border, borderRadius: 16, padding: 16, marginBottom: 12 }}>
           <Text style={{ color: tema.textoSec, fontSize: 12, marginBottom: 4 }}>ACTIVIDADES</Text>
           <Text style={{ color: tema.texto, fontSize: 14 }}>{form.actividadesElegidas.join(', ')}</Text>
-        </View>
-        <View style={{ backgroundColor: tema.card, borderWidth: 1, borderColor: tema.border, borderRadius: 16, padding: 16, marginBottom: 12 }}>
-          <Text style={{ color: tema.textoSec, fontSize: 12, marginBottom: 4 }}>BUSCA</Text>
-          <Text style={{ color: tema.texto, fontSize: 14 }}>{busquedas.find(b => b.id === form.buscaPareja)?.label}</Text>
-        </View>
-        <View style={{ backgroundColor: tema.card, borderWidth: 1, borderColor: tema.border, borderRadius: 16, padding: 16, marginBottom: 12 }}>
-          <Text style={{ color: tema.textoSec, fontSize: 12, marginBottom: 4 }}>MATCHES</Text>
-          <Text style={{ color: tema.texto, fontSize: 14 }}>{estado.matches.length} matches ❤️</Text>
         </View>
 
         <TouchableOpacity onPress={onCerrarSesion}
@@ -990,7 +1151,7 @@ function MainApp({ sesion, onCerrarSesion }) {
             <Text style={{ fontWeight: 'bold', fontSize: 22, letterSpacing: 2, color: VYNKA_BRAND }}>VYNKA</Text>
             <TouchableOpacity onPress={() => setMostrarCambioGrupo(true)}
               style={{ backgroundColor: tema.accion + '22', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: tema.accion + '44', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ color: tema.accion, fontSize: 13, fontWeight: 'bold' }}>{grupo === 'spark' ? '⚡ Spark' : '✨ Esencia'}</Text>
+              <Text style={{ color: tema.accion, fontSize: 13, fontWeight: 'bold', fontStyle: esEsencia ? 'italic' : 'normal' }}>{grupo === 'spark' ? '⚡ Spark' : '✨ Esencia'}</Text>
               <Text style={{ color: tema.textoSec, fontSize: 11 }}>🔄</Text>
             </TouchableOpacity>
           </View>
@@ -1026,9 +1187,6 @@ function MainApp({ sesion, onCerrarSesion }) {
               <View style={[s.popup, { backgroundColor: tema.fondo, borderColor: tema.border }]}>
                 <Text style={{ fontSize: 48, marginBottom: 12 }}>🔄</Text>
                 <Text style={{ color: tema.texto, fontWeight: 'bold', fontSize: 20, marginBottom: 8 }}>Cambiar de grupo</Text>
-                <Text style={{ color: tema.textoSec, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
-                  Pasarías a {grupo === 'spark' ? '✨ Esencia' : '⚡ Spark'}
-                </Text>
                 <View style={{ backgroundColor: '#FFD70022', borderRadius: 12, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: '#FFD70044', width: '100%' }}>
                   <Text style={{ color: '#FFD700', fontWeight: 'bold', fontSize: 16, textAlign: 'center', marginBottom: 4 }}>🚧 Próximamente disponible</Text>
                   <Text style={{ color: tema.textoSec, fontSize: 13, textAlign: 'center' }}>Esta función será paga. Pronto disponible.</Text>
@@ -1047,9 +1205,7 @@ function MainApp({ sesion, onCerrarSesion }) {
               <View style={[s.popup, { backgroundColor: tema.fondo, borderColor: VYNKA_BRAND + '44' }]}>
                 <Text style={{ fontSize: 48, marginBottom: 12 }}>⚡✨</Text>
                 <Text style={{ color: VYNKA_BRAND, fontWeight: 'bold', fontSize: 20, marginBottom: 8 }}>Acceso Dual Premium</Text>
-                <Text style={{ color: tema.textoSec, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
-                  Aparecé en ambos grupos simultáneamente y aumentá tu visibilidad al doble
-                </Text>
+                <Text style={{ color: tema.textoSec, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>Aparecé en ambos grupos y duplicá tu visibilidad</Text>
                 <View style={{ backgroundColor: VYNKA_BRAND + '22', borderRadius: 12, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: VYNKA_BRAND + '44', width: '100%' }}>
                   <Text style={{ color: VYNKA_BRAND, fontWeight: 'bold', fontSize: 16, textAlign: 'center', marginBottom: 4 }}>🚧 Próximamente disponible</Text>
                   <Text style={{ color: tema.textoSec, fontSize: 13, textAlign: 'center' }}>Esta función premium estará disponible muy pronto.</Text>
