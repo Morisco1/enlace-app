@@ -22,7 +22,11 @@
         "backgroundColor": "#0D0D12"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.vynka.app"
+      "package": "com.vynka.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,6 +35,12 @@
       "expo-secure-store",
       "expo-font",
       "expo-av"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "2114ec87-2956-48b5-b21b-593e0501a40c"
+      }
+    },
+    "owner": "vynka.app"
   }
 }

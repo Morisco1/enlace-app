@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from './supabase';
 
@@ -33,8 +33,12 @@ export default function Auth({ onLogin }) {
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0D0D12' }}>
         <ScrollView contentContainerStyle={{ padding: 24, flexGrow: 1, justifyContent: 'center' }}>
-          <Text style={{ fontSize: 60, textAlign: 'center', marginBottom: 16 }}>💫</Text>
-          <Text style={{ color: '#FF5722', fontSize: 32, fontWeight: 'bold', textAlign: 'center', letterSpacing: 4, marginBottom: 8 }}>VYNKA</Text>
+          
+          <Image 
+            source={require('./assets/logo-auth.png')} 
+            style={{ width: 180, height: 180, alignSelf: 'center', marginBottom: 16 }} 
+            resizeMode="contain"
+          />
           <Text style={{ color: '#A0A0A0', fontSize: 14, textAlign: 'center', marginBottom: 40 }}>donde los vínculos comienzan</Text>
 
           {/* Tabs */}
